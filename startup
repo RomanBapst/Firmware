@@ -1,0 +1,7 @@
+uorb start
+simulator start -s
+ekf_att_pos_estimator start
+mc_att_control start
+hil mode_pwm
+mixer load /dev/pwm_output0 quad_x.main.mix
+
