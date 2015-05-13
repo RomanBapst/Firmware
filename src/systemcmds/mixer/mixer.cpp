@@ -80,8 +80,11 @@ mixer_main(int argc, char *argv[])
 			warnx("failed to load mixer");
 			return 1;
 		}
+	} else {
+		usage("Unknown command");
+		return 1;
 	}
-	usage("Unknown command");
+	PX4_WARN("loaded mixer");
 	return 0;
 }
 
