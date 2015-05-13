@@ -339,6 +339,12 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	memset(&_controller_status,0,sizeof(_controller_status));
 	_vehicle_status.is_rotary_wing = true;
 
+	_actuators_id = ORB_ID(actuator_controls_0);
+
+	_v_control_mode.flag_control_manual_enabled = true;
+	_v_control_mode.flag_control_attitude_enabled = true;
+	_v_control_mode.flag_control_rates_enabled = true;
+
 	_params.att_p.zero();
 	_params.rate_p.zero();
 	_params.rate_i.zero();
@@ -872,8 +878,7 @@ MulticopterAttitudeControl::task_main()
 				_controller_status.pitch_rate_integ = _rates_int(1);
 				_controller_status.yaw_rate_integ = _rates_int(2);
 				_controller_status.timestamp = hrt_absolute_time();
-
-				if (!_actuators_0_circuit_breaker_enabled) {
+				if (true) {
 					if (_actuators_0_pub > 0) {
 						orb_publish(_actuators_id, _actuators_0_pub, &_actuators);
 						perf_end(_controller_latency_perf);
