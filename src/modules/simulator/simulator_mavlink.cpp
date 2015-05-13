@@ -92,7 +92,7 @@ void Simulator::pack_actuator_message(mavlink_message_t *msg) {
 void Simulator::send_data() {
 	// check if it's time to send new data
 	hrt_abstime time_now = hrt_absolute_time();
-	if (time_now - _time_last >= (hrt_abstime)(SEND_INTERVAL * 1000)) {
+	if (true) {//time_now - _time_last >= (hrt_abstime)(SEND_INTERVAL * 1000)) {
 		_time_last = time_now;
 		mavlink_message_t msg;
 		pack_actuator_message(&msg);
