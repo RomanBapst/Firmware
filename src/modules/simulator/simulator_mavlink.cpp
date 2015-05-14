@@ -329,7 +329,7 @@ void Simulator::updateSamples()
 	(void)pthread_attr_getschedparam(&sender_thread_attr, &param);
 
 	/* low priority */
-	param.sched_priority = SCHED_PRIORITY_DEFAULT - 30;
+	param.sched_priority = SCHED_PRIORITY_DEFAULT;
 	(void)pthread_attr_setschedparam(&sender_thread_attr, &param);
 	pthread_create(&sender_thread, &sender_thread_attr, Simulator::sending_trampoline, NULL);
 	pthread_attr_destroy(&sender_thread_attr);
