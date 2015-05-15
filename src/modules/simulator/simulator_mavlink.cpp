@@ -187,6 +187,7 @@ void Simulator::handle_message(mavlink_message_t *msg) {
 
 void Simulator::send_mavlink_message(const uint8_t msgid, const void *msg, uint8_t component_ID) {
 	uint8_t payload_len = mavlink_message_lengths[msgid];
+	unsigned packet_len = payload_len + MAVLINK_NUM_NON_PAYLOAD_BYTES;
 
 	uint8_t buf[MAVLINK_MAX_PACKET_LEN];
 
@@ -211,7 +212,7 @@ void Simulator::send_mavlink_message(const uint8_t msgid, const void *msg, uint8
 	buf[MAVLINK_NUM_HEADER_BYTES + payload_len] = (uint8_t)(checksum & 0xFF);
 	buf[MAVLINK_NUM_HEADER_BYTES + payload_len + 1] = (uint8_t)(checksum >> 8);
 
-	ssize_t len = sendto(_fd, buf, sizeof(buf), 0, (struct sockaddr *)&_srcaddr, _addrlen);
+	ssize_t len = sendto(_fd, buf, packet_len, 0, (struct sockaddr *)&_srcaddr, _addrlen);
 	if (len <= 0) {
 		PX4_WARN("Failed sending mavlink message");
 	}
