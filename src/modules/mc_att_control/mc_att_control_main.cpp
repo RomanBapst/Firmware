@@ -340,6 +340,7 @@ MulticopterAttitudeControl::MulticopterAttitudeControl() :
 	_vehicle_status.is_rotary_wing = true;
 
 	_actuators_id = ORB_ID(actuator_controls_0);
+	_rates_sp_id = ORB_ID(vehicle_rates_setpoint);
 
 	_v_control_mode.flag_control_manual_enabled = true;
 	_v_control_mode.flag_control_attitude_enabled = true;
@@ -615,11 +616,17 @@ MulticopterAttitudeControl::control_attitude(float dt)
 {
 	vehicle_attitude_setpoint_poll();
 
+	// big hack, this should come from mc_pos_controller
+	_v_att_sp.roll_body = _manual_control_sp.y;
+	_v_att_sp.pitch_body = -_manual_control_sp.x;
+	_v_att_sp.thrust = _manual_control_sp.z;
+	math::Matrix<3,3> R_sp;
+	R_sp.from_euler(_v_att_sp.roll_body,_v_att_sp.pitch_body,_v_att_sp.yaw_body);
 	_thrust_sp = _v_att_sp.thrust;
 
 	/* construct attitude setpoint rotation matrix */
-	math::Matrix<3, 3> R_sp;
-	R_sp.set(_v_att_sp.R_body);
+	//math::Matrix<3, 3> R_sp;
+	//R_sp.set(_v_att_sp.R_body);
 
 	/* rotation matrix for current state */
 	math::Matrix<3, 3> R;

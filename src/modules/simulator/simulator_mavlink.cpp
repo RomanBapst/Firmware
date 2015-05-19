@@ -238,6 +238,8 @@ void Simulator::send() {
 	fds[0].fd = _actuator_outputs_sub;
 	fds[0].events = POLLIN;
 
+	bool first_advertisement = false;
+
 	_time_last = hrt_absolute_time();
 
 	while(true) {
@@ -259,7 +261,13 @@ void Simulator::send() {
 		if (fds[0].revents & POLLIN) {
 			// got new data to read, update all topics
 			poll_topics();
-			send_data();
+
+			// ignore first message stemming from the topic being advertised
+			if (!first_advertisement) {
+				send_data();
+			} else {
+				first_advertisement = false;
+			}
 		}
 	}
 }

@@ -2083,7 +2083,7 @@ Sensors::task_main()
 		goto exit_immediate;
 	}
 
-	ret = mag_init();
+	//ret = mag_init();
 
 	if (ret) {
 		goto exit_immediate;

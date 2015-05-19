@@ -67,7 +67,7 @@ __END_DECLS
 	printf(" (file %s line %d)\n", __FILE__, __LINE__);\
 }
 //#define PX4_DEBUG(...)	{ }
-#define PX4_DEBUG(...) 	{ linux_log("DEBUG", __VA_ARGS__); }
+#define PX4_DEBUG(...) 	//{ linux_log("DEBUG", __VA_ARGS__); }
 #define PX4_INFO(...) 	{ linux_log("INFO",  __VA_ARGS__); }
 #define PX4_WARN(...) 	{ linux_log_verbose("WARN",  __VA_ARGS__); }
 #define PX4_ERR(...)	{ linux_log_verbose("ERROR", __VA_ARGS__); }
