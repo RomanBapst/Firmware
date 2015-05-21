@@ -779,7 +779,7 @@ void VtolAttitudeControl::task_main()
 				orb_copy(ORB_ID(actuator_controls_virtual_mc), _actuator_inputs_mc, &_actuators_mc_in);
 
 				// scale pitch control with total airspeed
-				scale_mc_output();
+				//scale_mc_output();
 
 				fill_mc_att_control_output();
 				fill_mc_att_rates_sp();
