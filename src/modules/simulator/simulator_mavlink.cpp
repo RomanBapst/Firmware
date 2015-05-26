@@ -159,6 +159,27 @@ void fill_sensors_from_imu_msg(struct sensor_combined_s *sensor, mavlink_hil_sen
 
 	instance->write_MPU_data((uint8_t *)&mpu);
 
+	RawAccelData accel;
+	accel.x = imu->xacc;
+	accel.y = imu->yacc;
+	accel.z = imu->zacc;
+
+	instance->write_accel_data((uint8_t *)&accel);
+
+	RawMagData mag;
+	mag.x = imu->xmag;
+	mag.y = imu->ymag;
+	mag.z = imu->zmag;
+
+	instance->write_mag_data((uint8_t *)&mag);
+
+	RawBaroData baro;
+	baro.pressure = imu->abs_pressure;
+	baro.altitude = imu->pressure_alt;
+	baro.temperature = imu->temperature;
+
+	instance->write_baro_data((uint8_t *)&baro);
+
 
 }
 

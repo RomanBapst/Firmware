@@ -65,22 +65,41 @@ bool Simulator::getMPUReport(uint8_t *buf, int len)
 {
 	// Reads are paced from reading gyrosim and if
 	// we don't delay here we read too fast
-	usleep(50000);
+	usleep(1000000);
 	return _mpu.copyData(buf, len);
 }
 
 bool Simulator::getRawAccelReport(uint8_t *buf, int len)
 {
+	usleep(1000000);
 	return _accel.copyData(buf, len);
+}
+
+bool Simulator::getMagReport(uint8_t *buf, int len) {
+	usleep(1000000);
+	return _mag.copyData(buf, len);
 }
 
 bool Simulator::getBaroSample(uint8_t *buf, int len)
 {
+	usleep(1000000);
 	return _baro.copyData(buf, len);
 }
 
 void Simulator::write_MPU_data(uint8_t *buf) {
 	_mpu.writeData(buf);
+}
+
+void Simulator::write_accel_data(uint8_t *buf) {
+	_accel.writeData(buf);
+}
+
+void Simulator::write_mag_data(uint8_t *buf) {
+	_mag.writeData(buf);
+}
+
+void Simulator::write_baro_data(uint8_t *buf) {
+	_baro.writeData(buf);
 }
 
 int Simulator::start(int argc, char *argv[])

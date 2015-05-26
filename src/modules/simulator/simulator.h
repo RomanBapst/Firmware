@@ -61,9 +61,19 @@ namespace simulator {
 // FIXME - what is the endianness of these on actual device?
 #pragma pack(push, 1)
 struct RawAccelData {
-        int16_t x;
-        int16_t y;
-        int16_t z;
+		float temperature;
+        float x;
+        float y;
+        float z;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct RawMagData {
+		float temperature;
+        float x;
+        float y;
+        float z;
 };
 #pragma pack(pop)
 
@@ -79,9 +89,13 @@ struct RawMPUData {
 };
 #pragma pack(pop)
 
+#pragma pack(push, 1)
 struct RawBaroData {
-	uint8_t		d[3];
+	float pressure;
+	float altitude;
+	float temperature;
 };
+#pragma pack(pop)
 
 template <typename RType> class Report {
 public:
@@ -158,14 +172,19 @@ public:
 	static int start(int argc, char *argv[]);
 
 	bool getRawAccelReport(uint8_t *buf, int len);
+	bool getMagReport(uint8_t *buf, int len);
 	bool getMPUReport(uint8_t *buf, int len);
 	bool getBaroSample(uint8_t *buf, int len);
 	void write_MPU_data(uint8_t *buf);
+	void write_accel_data(uint8_t *buf);
+	void write_mag_data(uint8_t *buf);
+	void write_baro_data(uint8_t *buf);
 private:
 	Simulator() :
 	_accel(1),
 	_mpu(1),
 	_baro(1),
+	_mag(1),
 	_sensor_combined_pub(-1)
 #ifndef __PX4_QURT
 	,
@@ -190,6 +209,7 @@ private:
 	simulator::Report<simulator::RawAccelData> 	_accel;
 	simulator::Report<simulator::RawMPUData>	_mpu;
 	simulator::Report<simulator::RawBaroData>	_baro;
+	simulator::Report<simulator::RawMagData> 	_mag;
 
 	// uORB publisher handlers
 	orb_advert_t _accel_pub;
