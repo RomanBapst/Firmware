@@ -69,13 +69,13 @@ struct RawAccelData {
 
 #pragma pack(push, 1)
 struct RawMPUData {
-	uint8_t	accel_x[2];
-	uint8_t	accel_y[2];
-	uint8_t	accel_z[2];
-	uint8_t	temp[2];
-	uint8_t	gyro_x[2];
-	uint8_t	gyro_y[2];
-	uint8_t	gyro_z[2];
+	float	accel_x;
+	float	accel_y;
+	float	accel_z;
+	float	temp;
+	float	gyro_x;
+	float	gyro_y;
+	float	gyro_z;
 };
 #pragma pack(pop)
 
@@ -160,6 +160,7 @@ public:
 	bool getRawAccelReport(uint8_t *buf, int len);
 	bool getMPUReport(uint8_t *buf, int len);
 	bool getBaroSample(uint8_t *buf, int len);
+	void write_MPU_data(uint8_t *buf);
 private:
 	Simulator() :
 	_accel(1),

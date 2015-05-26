@@ -104,7 +104,7 @@ static void fill_manual_control_sp_msg(struct manual_control_setpoint_s *manual,
 	manual->z = man_msg->z / 1000.0f;
 }
 
-void fill_sensors_from_imu_msg(struct sensor_combined_s *sensor, mavlink_hil_sensor_t *imu) {
+void fill_sensors_from_imu_msg(struct sensor_combined_s *sensor, mavlink_hil_sensor_t *imu, Simulator *instance) {
 	hrt_abstime timestamp = hrt_absolute_time();
 	sensor->timestamp = timestamp;
 	sensor->gyro_raw[0] = imu->xgyro * 1000.0f;
@@ -147,6 +147,19 @@ void fill_sensors_from_imu_msg(struct sensor_combined_s *sensor, mavlink_hil_sen
 
 	sensor->differential_pressure_pa = imu->diff_pressure * 1e2f; //from hPa to Pa
 	sensor->differential_pressure_timestamp = timestamp;
+
+	RawMPUData mpu;
+	mpu.accel_x = imu->xacc;
+	mpu.accel_y = imu->yacc;
+	mpu.accel_z = imu->zacc;
+	mpu.temp = imu->temperature;
+	mpu.gyro_x = imu->xgyro;
+	mpu.gyro_y = imu->ygyro;
+	mpu.gyro_z = imu->zgyro;
+
+	instance->write_MPU_data((uint8_t *)&mpu);
+
+
 }
 
 void Simulator::handle_message(mavlink_message_t *msg) {
@@ -154,7 +167,7 @@ void Simulator::handle_message(mavlink_message_t *msg) {
 		case MAVLINK_MSG_ID_HIL_SENSOR:
 			mavlink_hil_sensor_t imu;
 			mavlink_msg_hil_sensor_decode(msg, &imu);
-			fill_sensors_from_imu_msg(&_sensor, &imu);
+			fill_sensors_from_imu_msg(&_sensor, &imu, this);
 
 			// publish message
 			if(_sensor_combined_pub < 0) {

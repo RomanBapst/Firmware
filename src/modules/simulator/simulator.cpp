@@ -79,6 +79,10 @@ bool Simulator::getBaroSample(uint8_t *buf, int len)
 	return _baro.copyData(buf, len);
 }
 
+void Simulator::write_MPU_data(uint8_t *buf) {
+	_mpu.writeData(buf);
+}
+
 int Simulator::start(int argc, char *argv[])
 {
 	int ret = 0;

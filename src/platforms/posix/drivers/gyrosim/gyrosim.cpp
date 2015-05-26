@@ -400,13 +400,13 @@ private:
 	struct MPUReport {
 		uint8_t		cmd;
 		uint8_t		status;
-		uint8_t		accel_x[2];
-		uint8_t		accel_y[2];
-		uint8_t		accel_z[2];
-		uint8_t		temp[2];
-		uint8_t		gyro_x[2];
-		uint8_t		gyro_y[2];
-		uint8_t		gyro_z[2];
+		float		accel_x;
+		float		accel_y;
+		float		accel_z;
+		float		temp;
+		float		gyro_x;
+		float		gyro_y;
+		float		gyro_z;
 	};
 #pragma pack(pop)
 
@@ -1222,7 +1222,7 @@ GYROSIM::start()
 	_gyro_reports->flush();
 
 	/* start polling at the specified rate */
-	hrt_call_every(&_call, 1000, _call_interval, (hrt_callout)&GYROSIM::measure_trampoline, this);
+	hrt_call_every(&_call, 1000000, _call_interval, (hrt_callout)&GYROSIM::measure_trampoline, this);
 }
 
 void
@@ -1301,15 +1301,6 @@ GYROSIM::measure()
 	}
 
 	struct MPUReport mpu_report;
-	struct Report {
-		int16_t		accel_x;
-		int16_t		accel_y;
-		int16_t		accel_z;
-		int16_t		temp;
-		int16_t		gyro_x;
-		int16_t		gyro_y;
-		int16_t		gyro_z;
-	} report;
 
 	/* start measuring */
 	perf_begin(_sample_perf);
@@ -1326,65 +1317,6 @@ GYROSIM::measure()
 
 	if (OK != transfer((uint8_t *)&mpu_report, ((uint8_t *)&mpu_report), sizeof(mpu_report)))
 		return;
-
-	/*
-	 * Convert from big to little endian
-	 */
-
-	report.accel_x = int16_t_from_bytes(mpu_report.accel_x);
-	report.accel_y = int16_t_from_bytes(mpu_report.accel_y);
-	report.accel_z = int16_t_from_bytes(mpu_report.accel_z);
-
-	report.temp = int16_t_from_bytes(mpu_report.temp);
-
-	report.gyro_x = int16_t_from_bytes(mpu_report.gyro_x);
-	report.gyro_y = int16_t_from_bytes(mpu_report.gyro_y);
-	report.gyro_z = int16_t_from_bytes(mpu_report.gyro_z);
-
-	if (report.accel_x == 0 &&
-	    report.accel_y == 0 &&
-	    report.accel_z == 0 &&
-	    report.temp == 0 &&
-	    report.gyro_x == 0 &&
-	    report.gyro_y == 0 &&
-	    report.gyro_z == 0) {
-		// all zero data - probably a VDev bus error
-		perf_count(_bad_transfers);
-		perf_end(_sample_perf);
-                // note that we don't call reset() here as a reset()
-                // costs 20ms with interrupts disabled. That means if
-                // the mpu6k does go bad it would cause a FMU failure,
-                // regardless of whether another sensor is available,
-		return;
-	}
-
-	perf_count(_good_transfers);
-
-	if (_register_wait != 0) {
-		// we are waiting for some good transfers before using
-		// the sensor again. We still increment
-		// _good_transfers, but don't return any data yet
-		_register_wait--;
-		return;
-	}
-
-
-	/*
-	 * Swap axes and negate y
-	 */
-	int16_t accel_xt = report.accel_y;
-	int16_t accel_yt = ((report.accel_x == -32768) ? 32767 : -report.accel_x);
-
-	int16_t gyro_xt = report.gyro_y;
-	int16_t gyro_yt = ((report.gyro_x == -32768) ? 32767 : -report.gyro_x);
-
-	/*
-	 * Apply the swap
-	 */
-	report.accel_x = accel_xt;
-	report.accel_y = accel_yt;
-	report.gyro_x = gyro_xt;
-	report.gyro_y = gyro_yt;
 
 	/*
 	 * Report buffers.
@@ -1421,13 +1353,13 @@ GYROSIM::measure()
 
 	/* NOTE: Axes have been swapped to match the board a few lines above. */
 
-	arb.x_raw = report.accel_x;
-	arb.y_raw = report.accel_y;
-	arb.z_raw = report.accel_z;
+	arb.x_raw = (int16_t)(mpu_report.accel_x / _accel_range_scale);
+	arb.y_raw = (int16_t)(mpu_report.accel_y / _accel_range_scale);
+	arb.z_raw = (int16_t)(mpu_report.accel_z / _accel_range_scale);
 
-	float xraw_f = report.accel_x;
-	float yraw_f = report.accel_y;
-	float zraw_f = report.accel_z;
+	float xraw_f = (int16_t)(mpu_report.accel_x / _accel_range_scale);
+	float yraw_f = (int16_t)(mpu_report.accel_y / _accel_range_scale);
+	float zraw_f = (int16_t)(mpu_report.accel_z / _accel_range_scale);
 
 	// apply user specified rotation
 	rotate_3f(_rotation, xraw_f, yraw_f, zraw_f);
@@ -1443,18 +1375,18 @@ GYROSIM::measure()
 	arb.scaling = _accel_range_scale;
 	arb.range_m_s2 = _accel_range_m_s2;
 
-	_last_temperature = (report.temp) / 361.0f + 35.0f;
+	_last_temperature = mpu_report.temp;
 
-	arb.temperature_raw = report.temp;
+	arb.temperature_raw = (int16_t)((mpu_report.temp - 35.0f)*361.0f);
 	arb.temperature = _last_temperature;
 
-	grb.x_raw = report.gyro_x;
-	grb.y_raw = report.gyro_y;
-	grb.z_raw = report.gyro_z;
+	grb.x_raw = (int16_t)(mpu_report.gyro_x/_gyro_range_scale);
+	grb.y_raw = (int16_t)(mpu_report.gyro_y/_gyro_range_scale);
+	grb.z_raw = (int16_t)(mpu_report.gyro_z/_gyro_range_scale);
 
-	xraw_f = report.gyro_x;
-	yraw_f = report.gyro_y;
-	zraw_f = report.gyro_z;
+	xraw_f = (int16_t)(mpu_report.gyro_x/_gyro_range_scale);
+	yraw_f = (int16_t)(mpu_report.gyro_y/_gyro_range_scale);
+	zraw_f = (int16_t)(mpu_report.gyro_z/_gyro_range_scale);
 
 	// apply user specified rotation
 	rotate_3f(_rotation, xraw_f, yraw_f, zraw_f);
@@ -1470,7 +1402,7 @@ GYROSIM::measure()
 	grb.scaling = _gyro_range_scale;
 	grb.range_rad_s = _gyro_range_rad_s;
 
-	grb.temperature_raw = report.temp;
+	grb.temperature_raw = (int16_t)((mpu_report.temp - 35.0f)*361.0f);
 	grb.temperature = _last_temperature;
 
 	_accel_reports->force(&arb);
