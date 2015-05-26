@@ -1222,7 +1222,7 @@ GYROSIM::start()
 	_gyro_reports->flush();
 
 	/* start polling at the specified rate */
-	hrt_call_every(&_call, 1000000, _call_interval, (hrt_callout)&GYROSIM::measure_trampoline, this);
+	hrt_call_every(&_call, 1000, _call_interval, (hrt_callout)&GYROSIM::measure_trampoline, this);
 }
 
 void
@@ -1314,9 +1314,9 @@ GYROSIM::measure()
 
         // sensor transfer at high clock speed
         //set_frequency(GYROSIM_HIGH_BUS_SPEED);
-
-	if (OK != transfer((uint8_t *)&mpu_report, ((uint8_t *)&mpu_report), sizeof(mpu_report)))
+	if (OK != transfer((uint8_t *)&mpu_report, ((uint8_t *)&mpu_report), sizeof(mpu_report))) {
 		return;
+	}
 
 	/*
 	 * Report buffers.
@@ -1411,7 +1411,6 @@ GYROSIM::measure()
 	/* notify anyone waiting for data */
 	poll_notify(POLLIN);
 	_gyro->parent_poll_notify();
-
 	if (!(_pub_blocked)) {
 		/* log the time of this report */
 		perf_begin(_controller_latency_perf);

@@ -82,7 +82,7 @@ protected:
 	virtual int		close_last(device::file_t *filp);
 
 private:
-	static const hrt_abstime _tickrate = 10000;	/**< 100Hz base rate */
+	static const hrt_abstime _tickrate = 1000000;	/**< 100Hz base rate */
 	
 	hrt_call		_call;
 	perf_counter_t		_sample_perf;
