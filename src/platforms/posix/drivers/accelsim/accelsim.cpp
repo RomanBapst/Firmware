@@ -1045,50 +1045,54 @@ ACCELSIM::measure()
 	accel_report.y_raw = (int16_t)(raw_accel_report.y / _accel_range_scale);
 	accel_report.z_raw = (int16_t)(raw_accel_report.z / _accel_range_scale);
 
-	float xraw_f = (int16_t)(raw_accel_report.x/_accel_range_scale);
-	float yraw_f = (int16_t)(raw_accel_report.y / _accel_range_scale);
-	float zraw_f = (int16_t)(raw_accel_report.z / _accel_range_scale);
+	// float xraw_f = (int16_t)(raw_accel_report.x/_accel_range_scale);
+	// float yraw_f = (int16_t)(raw_accel_report.y / _accel_range_scale);
+	// float zraw_f = (int16_t)(raw_accel_report.z / _accel_range_scale);
 
-	// apply user specified rotation
-	rotate_3f(_rotation, xraw_f, yraw_f, zraw_f);
+	// // apply user specified rotation
+	// rotate_3f(_rotation, xraw_f, yraw_f, zraw_f);
 
-	float x_in_new = ((xraw_f * _accel_range_scale) - _accel_scale.x_offset) * _accel_scale.x_scale;
-	float y_in_new = ((yraw_f * _accel_range_scale) - _accel_scale.y_offset) * _accel_scale.y_scale;
-	float z_in_new = ((zraw_f * _accel_range_scale) - _accel_scale.z_offset) * _accel_scale.z_scale;
+	// float x_in_new = ((xraw_f * _accel_range_scale) - _accel_scale.x_offset) * _accel_scale.x_scale;
+	// float y_in_new = ((yraw_f * _accel_range_scale) - _accel_scale.y_offset) * _accel_scale.y_scale;
+	// float z_in_new = ((zraw_f * _accel_range_scale) - _accel_scale.z_offset) * _accel_scale.z_scale;
 
 	/*
 	  we have logs where the accelerometers get stuck at a fixed
 	  large value. We want to detect this and mark the sensor as
 	  being faulty
 	 */
-	if (fabsf(_last_accel[0] - x_in_new) < 0.001f &&
-	    fabsf(_last_accel[1] - y_in_new) < 0.001f &&
-	    fabsf(_last_accel[2] - z_in_new) < 0.001f &&
-	    fabsf(x_in_new) > 20 &&
-	    fabsf(y_in_new) > 20 &&
-	    fabsf(z_in_new) > 20) {
-		_constant_accel_count += 1;
-	} else {
-		_constant_accel_count = 0;
-	}
-	if (_constant_accel_count > 100) {
-		// we've had 100 constant accel readings with large
-		// values. The sensor is almost certainly dead. We
-		// will raise the error_count so that the top level
-		// flight code will know to avoid this sensor, but
-		// we'll still give the data so that it can be logged
-		// and viewed
-		perf_count(_bad_values);
-		_constant_accel_count = 0;
-	}
+	// if (fabsf(_last_accel[0] - x_in_new) < 0.001f &&
+	//     fabsf(_last_accel[1] - y_in_new) < 0.001f &&
+	//     fabsf(_last_accel[2] - z_in_new) < 0.001f &&
+	//     fabsf(x_in_new) > 20 &&
+	//     fabsf(y_in_new) > 20 &&
+	//     fabsf(z_in_new) > 20) {
+	// 	_constant_accel_count += 1;
+	// } else {
+	// 	_constant_accel_count = 0;
+	// }
+	// if (_constant_accel_count > 100) {
+	// 	// we've had 100 constant accel readings with large
+	// 	// values. The sensor is almost certainly dead. We
+	// 	// will raise the error_count so that the top level
+	// 	// flight code will know to avoid this sensor, but
+	// 	// we'll still give the data so that it can be logged
+	// 	// and viewed
+	// 	perf_count(_bad_values);
+	// 	_constant_accel_count = 0;
+	// }
 
-	_last_accel[0] = x_in_new;
-	_last_accel[1] = y_in_new;
-	_last_accel[2] = z_in_new;
+	// _last_accel[0] = x_in_new;
+	// _last_accel[1] = y_in_new;
+	// _last_accel[2] = z_in_new;
 
-	accel_report.x = _accel_filter_x.apply(x_in_new);
-	accel_report.y = _accel_filter_y.apply(y_in_new);
-	accel_report.z = _accel_filter_z.apply(z_in_new);
+	// accel_report.x = _accel_filter_x.apply(x_in_new);
+	// accel_report.y = _accel_filter_y.apply(y_in_new);
+	// accel_report.z = _accel_filter_z.apply(z_in_new);
+
+	accel_report.x = raw_accel_report.x;
+	accel_report.y = raw_accel_report.y;
+	accel_report.z = raw_accel_report.z;
 
 	accel_report.scaling = _accel_range_scale;
 	accel_report.range_m_s2 = _accel_range_m_s2;
@@ -1169,21 +1173,25 @@ ACCELSIM::mag_measure()
 	float yraw_f = (int16_t)(raw_mag_report.y / _mag_range_scale);
 	float zraw_f = (int16_t)(raw_mag_report.z / _mag_range_scale);
 
+
 	/* apply user specified rotation */
 	rotate_3f(_rotation, xraw_f, yraw_f, zraw_f);
 
-	mag_report.x = ((xraw_f * _mag_range_scale) - _mag_scale.x_offset) * _mag_scale.x_scale;
-	mag_report.y = ((yraw_f * _mag_range_scale) - _mag_scale.y_offset) * _mag_scale.y_scale;
-	mag_report.z = ((zraw_f * _mag_range_scale) - _mag_scale.z_offset) * _mag_scale.z_scale;
-	mag_report.scaling = _mag_range_scale;
-	mag_report.range_ga = (float)_mag_range_ga;
-	mag_report.error_count = perf_event_count(_bad_registers) + perf_event_count(_bad_values);
+	// mag_report.x = ((xraw_f * _mag_range_scale) - _mag_scale.x_offset) * _mag_scale.x_scale;
+	// mag_report.y = ((yraw_f * _mag_range_scale) - _mag_scale.y_offset) * _mag_scale.y_scale;
+	// mag_report.z = ((zraw_f * _mag_range_scale) - _mag_scale.z_offset) * _mag_scale.z_scale;
+	// mag_report.scaling = _mag_range_scale;
+	// mag_report.range_ga = (float)_mag_range_ga;
+	// mag_report.error_count = perf_event_count(_bad_registers) + perf_event_count(_bad_values);
 
 	/* remember the temperature. The datasheet isn't clear, but it
 	 * seems to be a signed offset from 25 degrees C in units of 0.125C
 	 */
 	_last_temperature = raw_mag_report.temperature;
 	mag_report.temperature = _last_temperature;
+	mag_report.x = raw_mag_report.x;
+	mag_report.y = raw_mag_report.y;
+	mag_report.z = raw_mag_report.z;
 
 	_mag_reports->force(&mag_report);
 

@@ -1327,7 +1327,8 @@ GYROSIM::measure()
 	/*
 	 * Adjust and scale results to m/s^2.
 	 */
-	grb.timestamp = arb.timestamp = hrt_absolute_time();
+	grb.timestamp = hrt_absolute_time();
+	arb.timestamp = grb.timestamp;
 
 	// report the error count as the sum of the number of bad
 	// transfers and bad register reads. This allows the higher
@@ -1356,7 +1357,7 @@ GYROSIM::measure()
 	arb.x_raw = (int16_t)(mpu_report.accel_x / _accel_range_scale);
 	arb.y_raw = (int16_t)(mpu_report.accel_y / _accel_range_scale);
 	arb.z_raw = (int16_t)(mpu_report.accel_z / _accel_range_scale);
-
+/*
 	float xraw_f = (int16_t)(mpu_report.accel_x / _accel_range_scale);
 	float yraw_f = (int16_t)(mpu_report.accel_y / _accel_range_scale);
 	float zraw_f = (int16_t)(mpu_report.accel_z / _accel_range_scale);
@@ -1371,7 +1372,7 @@ GYROSIM::measure()
 	arb.x = _accel_filter_x.apply(x_in_new);
 	arb.y = _accel_filter_y.apply(y_in_new);
 	arb.z = _accel_filter_z.apply(z_in_new);
-
+*/
 	arb.scaling = _accel_range_scale;
 	arb.range_m_s2 = _accel_range_m_s2;
 
@@ -1380,10 +1381,14 @@ GYROSIM::measure()
 	arb.temperature_raw = (int16_t)((mpu_report.temp - 35.0f)*361.0f);
 	arb.temperature = _last_temperature;
 
+	arb.x = mpu_report.accel_x;
+	arb.y = mpu_report.accel_y;
+	arb.z = mpu_report.accel_z;
+
 	grb.x_raw = (int16_t)(mpu_report.gyro_x/_gyro_range_scale);
 	grb.y_raw = (int16_t)(mpu_report.gyro_y/_gyro_range_scale);
 	grb.z_raw = (int16_t)(mpu_report.gyro_z/_gyro_range_scale);
-
+/*
 	xraw_f = (int16_t)(mpu_report.gyro_x/_gyro_range_scale);
 	yraw_f = (int16_t)(mpu_report.gyro_y/_gyro_range_scale);
 	zraw_f = (int16_t)(mpu_report.gyro_z/_gyro_range_scale);
@@ -1398,15 +1403,20 @@ GYROSIM::measure()
 	grb.x = _gyro_filter_x.apply(x_gyro_in_new);
 	grb.y = _gyro_filter_y.apply(y_gyro_in_new);
 	grb.z = _gyro_filter_z.apply(z_gyro_in_new);
-
+*/
 	grb.scaling = _gyro_range_scale;
 	grb.range_rad_s = _gyro_range_rad_s;
 
 	grb.temperature_raw = (int16_t)((mpu_report.temp - 35.0f)*361.0f);
 	grb.temperature = _last_temperature;
 
+	grb.x = mpu_report.gyro_x;
+	grb.y = mpu_report.gyro_y;
+	grb.z = mpu_report.gyro_z;
+
 	_accel_reports->force(&arb);
 	_gyro_reports->force(&grb);
+
 
 	/* notify anyone waiting for data */
 	poll_notify(POLLIN);
