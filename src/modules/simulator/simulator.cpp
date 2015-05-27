@@ -71,15 +71,18 @@ bool Simulator::getMPUReport(uint8_t *buf, int len)
 
 bool Simulator::getRawAccelReport(uint8_t *buf, int len)
 {
+	usleep(1000);
 	return _accel.copyData(buf, len);
 }
 
 bool Simulator::getMagReport(uint8_t *buf, int len) {
+	usleep(1000);
 	return _mag.copyData(buf, len);
 }
 
 bool Simulator::getBaroSample(uint8_t *buf, int len)
 {
+	usleep(1000);
 	return _baro.copyData(buf, len);
 }
 
