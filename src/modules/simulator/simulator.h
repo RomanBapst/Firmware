@@ -100,6 +100,7 @@ struct RawBaroData {
 template <typename RType> class Report {
 public:
 	Report(int readers) :
+			_readidx(0),
         	_max_readers(readers),
         	_report_len(sizeof(RType))
 	{

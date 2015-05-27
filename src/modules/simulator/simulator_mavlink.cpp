@@ -192,9 +192,9 @@ void Simulator::handle_message(mavlink_message_t *msg) {
 
 			// publish message
 			if(_sensor_combined_pub < 0) {
-				_sensor_combined_pub = orb_advertise(ORB_ID(sensor_combined), &_sensor);
+				//_sensor_combined_pub = orb_advertise(ORB_ID(sensor_combined), &_sensor);
 			} else {
-				orb_publish(ORB_ID(sensor_combined), _sensor_combined_pub, &_sensor);
+				//orb_publish(ORB_ID(sensor_combined), _sensor_combined_pub, &_sensor);
 			}
 			break;
 
