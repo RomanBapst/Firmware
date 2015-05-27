@@ -176,10 +176,10 @@ public:
 	bool getMagReport(uint8_t *buf, int len);
 	bool getMPUReport(uint8_t *buf, int len);
 	bool getBaroSample(uint8_t *buf, int len);
-	void write_MPU_data(uint8_t *buf);
-	void write_accel_data(uint8_t *buf);
-	void write_mag_data(uint8_t *buf);
-	void write_baro_data(uint8_t *buf);
+	void write_MPU_data(void *buf);
+	void write_accel_data(void *buf);
+	void write_mag_data(void *buf);
+	void write_baro_data(void *buf);
 private:
 	Simulator() :
 	_accel(1),
@@ -247,6 +247,7 @@ private:
 	void send_data();
 	void pack_actuator_message(mavlink_hil_controls_t &actuator_msg);
 	void send_mavlink_message(const uint8_t msgid, const void *msg, uint8_t component_ID);
+	void update_sensors(struct sensor_combined_s *sensor, mavlink_hil_sensor_t *imu);
 	static void *sending_trampoline(void *);
 	void send();
 #endif

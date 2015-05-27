@@ -71,34 +71,31 @@ bool Simulator::getMPUReport(uint8_t *buf, int len)
 
 bool Simulator::getRawAccelReport(uint8_t *buf, int len)
 {
-	usleep(1000);
 	return _accel.copyData(buf, len);
 }
 
 bool Simulator::getMagReport(uint8_t *buf, int len) {
-	usleep(1000);
 	return _mag.copyData(buf, len);
 }
 
 bool Simulator::getBaroSample(uint8_t *buf, int len)
 {
-	usleep(1000);
 	return _baro.copyData(buf, len);
 }
 
-void Simulator::write_MPU_data(uint8_t *buf) {
+void Simulator::write_MPU_data(void *buf) {
 	_mpu.writeData(buf);
 }
 
-void Simulator::write_accel_data(uint8_t *buf) {
+void Simulator::write_accel_data(void *buf) {
 	_accel.writeData(buf);
 }
 
-void Simulator::write_mag_data(uint8_t *buf) {
+void Simulator::write_mag_data(void *buf) {
 	_mag.writeData(buf);
 }
 
-void Simulator::write_baro_data(uint8_t *buf) {
+void Simulator::write_baro_data(void *buf) {
 	_baro.writeData(buf);
 }
 
