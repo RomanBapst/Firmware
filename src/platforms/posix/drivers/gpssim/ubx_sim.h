@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2015 Mark Charlebois. All rights reserved.
+ *   Copyright (c) 2012, 2013, 2014 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,46 +32,32 @@
  ****************************************************************************/
 
 /**
- * @file px4_posix_impl.cpp
+ * @file ubx_sim.h
  *
- * PX4 Middleware Wrapper Linux Implementation
  */
 
-#include <px4_defines.h>
-#include <px4_middleware.h>
-#include <px4_workqueue.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <signal.h>
-#include <errno.h>
-#include <unistd.h>
-#include "systemlib/param/param.h"
-#include "hrt_work.h"
+#ifndef UBX_SIM_H_
+#define UBX_SIM_H_
 
-__BEGIN_DECLS
 
-long PX4_TICKS_PER_SEC = sysconf(_SC_CLK_TCK);
 
-extern void hrt_init(void);
 
-__END_DECLS
-
-namespace px4
+class UBX_SIM
 {
+public:
+	UBX_SIM(const int &fd, struct vehicle_gps_position_s *gps_position, struct satellite_info_s *satellite_info);
+	~UBX_SIM();
+	int			receive(const unsigned timeout);
+	int			configure(unsigned &baudrate);
 
-void init_once(void);
+private:
 
-void init_once(void)
-{
-	work_queues_init();
-	hrt_work_queue_init();
-	hrt_init();
-}
+	
 
-void init(int argc, char *argv[], const char *app_name)
-{
-	printf("App name: %s\n", app_name);
-}
+	int			_fd;
+	struct vehicle_gps_position_s *_gps_position;
+	struct satellite_info_s *_satellite_info;
+	bool			_enable_sat_info;
+};
 
-}
-
+#endif /* UBX_SIM_H_ */

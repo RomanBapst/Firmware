@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2014 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2012, 2013 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -32,26 +32,11 @@
 ############################################################################
 
 #
-# NuttX / uORB adapter library
+# Simulated GPS driver
 #
 
-SRCS		 = 	\
-			px4_posix_impl.cpp \
-			px4_posix_tasks.cpp  \
-			hrt_thread.c \
-			hrt_queue.c \
-			hrt_work_cancel.c \
-			work_thread.c \
-			work_queue.c \
-			work_cancel.c \
-			lib_crc32.c \
-			drv_hrt.c \
-			queue.c \
-			dq_addlast.c \
-			dq_remfirst.c \
-			sq_addlast.c \
-			sq_remfirst.c \
-			sq_addafter.c \
-			dq_rem.c 
+MODULE_COMMAND	= gps_sim
+
+SRCS		= gpssim.cpp
 
 MAXOPTIMIZATION	 = -Os

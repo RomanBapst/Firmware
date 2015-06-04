@@ -131,8 +131,8 @@ __BEGIN_DECLS
 extern long PX4_TICKS_PER_SEC;
 __END_DECLS
 
-#define USEC2TICK(x) (PX4_TICKS_PER_SEC*(long)(x)/1000000L)
-#define USEC_PER_TICK (1000000L/PX4_TICKS_PER_SEC)
+#define USEC_PER_TICK (1000000UL/PX4_TICKS_PER_SEC)
+#define USEC2TICK(x) (((x)+(USEC_PER_TICK/2))/USEC_PER_TICK) 
 
 #define px4_statfs_buf_f_bavail_t unsigned long
 
@@ -145,6 +145,8 @@ __END_DECLS
 #if defined(__PX4_ROS) || defined(__PX4_POSIX)
 #define OK 0
 #define ERROR -1
+
+#define MAX_RAND 32767
 
 #if defined(__PX4_QURT)
 #define M_PI			3.14159265358979323846
@@ -208,6 +210,7 @@ __END_DECLS
 #define isinf(x) false
 #define fminf(x, y) ((x) > (y) ? y : x)
 #endif
+
 
 #endif
 

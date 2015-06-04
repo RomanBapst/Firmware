@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2015 Mark Charlebois. All rights reserved.
+ *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,46 +32,29 @@
  ****************************************************************************/
 
 /**
- * @file px4_posix_impl.cpp
+ * @file drv_irlock.h
  *
- * PX4 Middleware Wrapper Linux Implementation
- */
+ * IR-Lock device API
+ **/
 
-#include <px4_defines.h>
-#include <px4_middleware.h>
-#include <px4_workqueue.h>
+#pragma once
+
 #include <stdint.h>
-#include <stdio.h>
-#include <signal.h>
-#include <errno.h>
-#include <unistd.h>
-#include "systemlib/param/param.h"
-#include "hrt_work.h"
+#include <sys/ioctl.h>
 
-__BEGIN_DECLS
+#include "drv_sensor.h" // include sensor driver interfaces
 
-long PX4_TICKS_PER_SEC = sysconf(_SC_CLK_TCK);
+#define IRLOCK_BASE_DEVICE_PATH	"/dev/irlock"
+#define IRLOCK0_DEVICE_PATH	"/dev/irlock0"
 
-extern void hrt_init(void);
+#define IRLOCK_OBJECTS_MAX	5	/** up to 5 objects can be detected/reported **/
 
-__END_DECLS
-
-namespace px4
-{
-
-void init_once(void);
-
-void init_once(void)
-{
-	work_queues_init();
-	hrt_work_queue_init();
-	hrt_init();
-}
-
-void init(int argc, char *argv[], const char *app_name)
-{
-	printf("App name: %s\n", app_name);
-}
-
-}
-
+/** irlock_s structure returned from read calls **/
+struct irlock_s {
+	uint64_t timestamp; /** microseconds since system start **/
+	uint16_t target_num;	/** target number prioritised by size (largest is 0) **/
+	float angle_x;	/** x-axis angle in radians from center of image to center of target **/
+	float angle_y;	/** y-axis angle in radians from center of image to center of target **/
+	float size_x;	/** size in radians of target along x-axis **/
+	float size_y;	/** size in radians of target along y-axis **/
+};

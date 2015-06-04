@@ -30,7 +30,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-
+#include <termios.h>
 #include <px4_log.h>
 #include <px4_time.h>
 #include "simulator.h"
@@ -45,6 +45,8 @@ using namespace simulator;
 
 static const uint8_t mavlink_message_lengths[256] = MAVLINK_MESSAGE_LENGTHS;
 static const uint8_t mavlink_message_crcs[256] = MAVLINK_MESSAGE_CRCS;
+
+static int openUart(const char *uart_name, int baud);
 
 void Simulator::pack_actuator_message(mavlink_hil_controls_t &actuator_msg) {
 	float out[8];
@@ -85,68 +87,126 @@ void Simulator::pack_actuator_message(mavlink_hil_controls_t &actuator_msg) {
 }
 
 void Simulator::send_data() {
-	// check if it's time to send new data
-	hrt_abstime time_now = hrt_absolute_time();
-	if (true) {//time_now - _time_last >= (hrt_abstime)(SEND_INTERVAL * 1000)) {
-		_time_last = time_now;
-		mavlink_hil_controls_t msg;
-		pack_actuator_message(msg);
-		send_mavlink_message(MAVLINK_MSG_ID_HIL_CONTROLS, &msg, 200);
-		// can add more messages here, can also setup different timings
+	mavlink_hil_controls_t msg;
+	pack_actuator_message(msg);
+	send_mavlink_message(MAVLINK_MSG_ID_HIL_CONTROLS, &msg, 200);
+
+	// send heartbeat
+	if (hrt_elapsed_time(&_heartbeat_last) >= 1e6) {
+		_heartbeat_last = hrt_absolute_time();
+		mavlink_heartbeat_t msg;
+		msg.base_mode = 0;
+		msg.custom_mode = 0;
+		msg.autopilot = MAV_AUTOPILOT_PX4;
+		msg.mavlink_version = 3;
+		send_mavlink_message(MAVLINK_MSG_ID_HEARTBEAT, &msg, 200);
+	}
+
+	// send attitude message
+	if (hrt_elapsed_time(&_attitude_last) > 20000) {
+		_attitude_last = hrt_absolute_time();
+		mavlink_attitude_t msg;
+		msg.time_boot_ms = _attitude.timestamp / 1000;
+		msg.roll = _attitude.roll;
+		msg.pitch = _attitude.pitch;
+		msg.yaw = _attitude.yaw;
+		msg.rollspeed = _attitude.rollspeed;
+		msg.pitchspeed = _attitude.pitchspeed;
+		msg.yawspeed = _attitude.yawspeed;
+		send_mavlink_message(MAVLINK_MSG_ID_ATTITUDE, &msg, 200);
+	}
+
+	// send manual control setpoint
+	if (hrt_elapsed_time(&_manual_last) > 200000) {
+		_manual_last = hrt_absolute_time();
+		mavlink_manual_control_t msg;
+		msg.x = _manual.x * 1000;
+		msg.y = _manual.y * 1000;
+		msg.z = _manual.z * 1000;
+		msg.r = _manual.r * 1000;
+		msg.buttons = 0;
+		send_mavlink_message(MAVLINK_MSG_ID_MANUAL_CONTROL, &msg, 200);
 	}
 }
 
-static void fill_manual_control_sp_msg(struct manual_control_setpoint_s *manual, mavlink_manual_control_t *man_msg) {
-	manual->timestamp = hrt_absolute_time();
-	manual->x = man_msg->x / 1000.0f;
-	manual->y = man_msg->y / 1000.0f;
-	manual->r = man_msg->r / 1000.0f;
-	manual->z = man_msg->z / 1000.0f;
+static void fill_rc_input_msg(struct rc_input_values *rc, mavlink_rc_channels_t *rc_channels) {
+	rc->timestamp_publication = hrt_absolute_time();
+	rc->timestamp_last_signal = hrt_absolute_time();
+	rc->channel_count = rc_channels->chancount;
+	rc->rssi = rc_channels->rssi;
+
+	rc->values[0] = rc_channels->chan1_raw;
+	rc->values[1] = rc_channels->chan2_raw;
+	rc->values[2] = rc_channels->chan3_raw;
+	rc->values[3] = rc_channels->chan4_raw;
+	rc->values[4] = rc_channels->chan5_raw;
+	rc->values[5] = rc_channels->chan6_raw;
+	rc->values[6] = rc_channels->chan7_raw;
+	rc->values[7] = rc_channels->chan8_raw;
+	rc->values[8] = rc_channels->chan9_raw;
+	rc->values[9] = rc_channels->chan10_raw;
+	rc->values[10] = rc_channels->chan11_raw;
+	rc->values[11] = rc_channels->chan12_raw;
+	rc->values[12] = rc_channels->chan13_raw;
+	rc->values[13] = rc_channels->chan14_raw;
+	rc->values[14] = rc_channels->chan15_raw;
+	rc->values[15] = rc_channels->chan16_raw;
+	rc->values[16] = rc_channels->chan17_raw;
+	rc->values[17] = rc_channels->chan18_raw;
 }
 
-void fill_sensors_from_imu_msg(struct sensor_combined_s *sensor, mavlink_hil_sensor_t *imu) {
-	hrt_abstime timestamp = hrt_absolute_time();
-	sensor->timestamp = timestamp;
-	sensor->gyro_raw[0] = imu->xgyro * 1000.0f;
-	sensor->gyro_raw[1] = imu->ygyro * 1000.0f;
-	sensor->gyro_raw[2] = imu->zgyro * 1000.0f;
-	sensor->gyro_rad_s[0] = imu->xgyro;
-	sensor->gyro_rad_s[1] = imu->ygyro;
-	sensor->gyro_rad_s[2] = imu->zgyro;
+void Simulator::update_sensors(struct sensor_combined_s *sensor, mavlink_hil_sensor_t *imu) {
+	// write sensor data to memory so that drivers can copy data from there
+	RawMPUData mpu;
+	mpu.accel_x = imu->xacc;
+	mpu.accel_y = imu->yacc;
+	mpu.accel_z = imu->zacc;
+	mpu.temp = imu->temperature;
+	mpu.gyro_x = imu->xgyro;
+	mpu.gyro_y = imu->ygyro;
+	mpu.gyro_z = imu->zgyro;
 
-	sensor->accelerometer_raw[0] = imu->xacc; // mg2ms2;
-	sensor->accelerometer_raw[1] = imu->yacc; // mg2ms2;
-	sensor->accelerometer_raw[2] = imu->zacc; // mg2ms2;
-	sensor->accelerometer_m_s2[0] = imu->xacc;
-	sensor->accelerometer_m_s2[1] = imu->yacc;
-	sensor->accelerometer_m_s2[2] = imu->zacc;
-	sensor->accelerometer_mode = 0; // TODO what is this?
-	sensor->accelerometer_range_m_s2 = 32.7f; // int16
-	sensor->accelerometer_timestamp = timestamp;
-	sensor->timestamp = timestamp;
+	write_MPU_data((void *)&mpu);
 
-	sensor->adc_voltage_v[0] = 0.0f;
-	sensor->adc_voltage_v[1] = 0.0f;
-	sensor->adc_voltage_v[2] = 0.0f;
+	RawAccelData accel;
+	accel.x = imu->xacc;
+	accel.y = imu->yacc;
+	accel.z = imu->zacc;
 
-	sensor->magnetometer_raw[0] = imu->xmag * 1000.0f;
-	sensor->magnetometer_raw[1] = imu->ymag * 1000.0f;
-	sensor->magnetometer_raw[2] = imu->zmag * 1000.0f;
-	sensor->magnetometer_ga[0] = imu->xmag;
-	sensor->magnetometer_ga[1] = imu->ymag;
-	sensor->magnetometer_ga[2] = imu->zmag;
-	sensor->magnetometer_range_ga = 32.7f; // int16
-	sensor->magnetometer_mode = 0; // TODO what is this
-	sensor->magnetometer_cuttoff_freq_hz = 50.0f;
-	sensor->magnetometer_timestamp = timestamp;
+	write_accel_data((void *)&accel);
 
-	sensor->baro_pres_mbar = imu->abs_pressure;
-	sensor->baro_alt_meter = imu->pressure_alt;
-	sensor->baro_temp_celcius = imu->temperature;
-	sensor->baro_timestamp = timestamp;
+	RawMagData mag;
+	mag.x = imu->xmag;
+	mag.y = imu->ymag;
+	mag.z = imu->zmag;
 
-	sensor->differential_pressure_pa = imu->diff_pressure * 1e2f; //from hPa to Pa
-	sensor->differential_pressure_timestamp = timestamp;
+	write_mag_data((void *)&mag);
+
+	RawBaroData baro;
+	baro.pressure = imu->abs_pressure;
+	baro.altitude = imu->pressure_alt;
+	baro.temperature = imu->temperature;
+
+	write_baro_data((void *)&baro);
+}
+
+void Simulator::update_gps(mavlink_hil_gps_t *gps_sim) {
+	RawGPSData gps;
+	gps.lat = gps_sim->lat; 
+ 	gps.lon = gps_sim->lon;
+ 	gps.alt = gps_sim->alt;
+	gps.eph = gps_sim->eph;
+	gps.epv = gps_sim->epv;
+	gps.vel = gps_sim->vel;
+	gps.vn = gps_sim->vn;
+	gps.ve = gps_sim->ve;
+	gps.vd = gps_sim->vd;
+	gps.cog = gps_sim->cog;
+	gps.fix_type = gps_sim->fix_type;
+	gps.satellites_visible = gps_sim->satellites_visible;
+
+	write_gps_data((void *)&gps);
+
 }
 
 void Simulator::handle_message(mavlink_message_t *msg) {
@@ -154,27 +214,26 @@ void Simulator::handle_message(mavlink_message_t *msg) {
 		case MAVLINK_MSG_ID_HIL_SENSOR:
 			mavlink_hil_sensor_t imu;
 			mavlink_msg_hil_sensor_decode(msg, &imu);
-			fill_sensors_from_imu_msg(&_sensor, &imu);
-
-			// publish message
-			if(_sensor_combined_pub == nullptr) {
-				_sensor_combined_pub = orb_advertise(ORB_ID(sensor_combined), &_sensor);
-			} else {
-				orb_publish(ORB_ID(sensor_combined), _sensor_combined_pub, &_sensor);
-			}
+			update_sensors(&_sensor, &imu);
 			break;
 
-		case MAVLINK_MSG_ID_MANUAL_CONTROL:
+		case MAVLINK_MSG_ID_HIL_GPS:
+			mavlink_hil_gps_t gps_sim;
+			mavlink_msg_hil_gps_decode(msg, &gps_sim);
+			update_gps(&gps_sim);
+			break;
 
-			mavlink_manual_control_t man_ctrl_sp;
-			mavlink_msg_manual_control_decode(msg, &man_ctrl_sp);
-			fill_manual_control_sp_msg(&_manual_control_sp, &man_ctrl_sp);
+		case MAVLINK_MSG_ID_RC_CHANNELS:
+
+			mavlink_rc_channels_t rc_channels;
+			mavlink_msg_rc_channels_decode(msg, &rc_channels);
+			fill_rc_input_msg(&_rc_input, &rc_channels);
 
 			// publish message
-			if(_manual_control_sp_pub == nullptr) {
-				_manual_control_sp_pub = orb_advertise(ORB_ID(manual_control_setpoint), &_manual_control_sp);
+			if(_rc_channels_pub == nullptr) {
+				_rc_channels_pub = orb_advertise(ORB_ID(input_rc), &_rc_input);
 			} else {
-				orb_publish(ORB_ID(manual_control_setpoint), _manual_control_sp_pub, &_manual_control_sp);
+				orb_publish(ORB_ID(input_rc), _rc_channels_pub, &_rc_input);
 			}
 			break;
 	}
@@ -226,6 +285,12 @@ void Simulator::poll_topics() {
 	if(updated) {
 		orb_copy(ORB_ID(vehicle_attitude), _vehicle_attitude_sub, &_attitude);
 	}
+
+	orb_check(_manual_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(manual_control_setpoint), _manual_sub, &_manual);
+	}
 }
 
 void *Simulator::sending_trampoline(void *) {
@@ -238,11 +303,16 @@ void Simulator::send() {
 	fds[0].fd = _actuator_outputs_sub;
 	fds[0].events = POLLIN;
 
-	_time_last = hrt_absolute_time();
+	_time_last = 0;
+	_heartbeat_last = 0;
+	_attitude_last = 0;
+	_manual_last = 0;
+
+	int pret;
 
 	while(true) {
 		// wait for up to 100ms for data
-		int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
+		pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
 
 		//timed out
 		if (pret == 0)
@@ -288,15 +358,10 @@ void Simulator::updateSamples()
 	struct mag_report mag;
 	memset(&mag, 0 ,sizeof(mag));
 
-	// init publishers
-	_baro_pub = orb_advertise(ORB_ID(sensor_baro), &baro);
-	_accel_pub = orb_advertise(ORB_ID(sensor_accel), &accel);
-	_gyro_pub = orb_advertise(ORB_ID(sensor_gyro), &gyro);
-	_mag_pub = orb_advertise(ORB_ID(sensor_mag), &mag);
-
 	// subscribe to topics
 	_actuator_outputs_sub = orb_subscribe(ORB_ID(actuator_outputs));
 	_vehicle_attitude_sub = orb_subscribe(ORB_ID(vehicle_attitude));
+	_manual_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
 
 	// try to setup udp socket for communcation with simulator
 	memset((char *)&_myaddr, 0, sizeof(_myaddr));
@@ -328,11 +393,9 @@ void Simulator::updateSamples()
 	/* low priority */
 	param.sched_priority = SCHED_PRIORITY_DEFAULT;
 	(void)pthread_attr_setschedparam(&sender_thread_attr, &param);
-	pthread_create(&sender_thread, &sender_thread_attr, Simulator::sending_trampoline, NULL);
-	pthread_attr_destroy(&sender_thread_attr);
 
 	// setup serial connection to autopilot (used to get manual controls)
-	int serial_fd = open(PIXHAWK_DEVICE, O_RDWR);
+	int serial_fd = openUart(PIXHAWK_DEVICE, 115200);
 
 	if (serial_fd < 0) {
 		PX4_WARN("failed to open %s", PIXHAWK_DEVICE);
@@ -355,10 +418,27 @@ void Simulator::updateSamples()
 	fds[1].events = POLLIN;
 
 	int len = 0;
+
+	// wait for first data from simulator and respond with first controls
+	// this is important for the UDP communication to work
+	int pret = -1;
+	while (pret <= 0) {
+		pret = ::poll(&fds[0], (sizeof(fds[0])/sizeof(fds[0])), 100);
+	}
+
+	if (fds[0].revents & POLLIN) {
+		len = recvfrom(_fd, _buf, sizeof(_buf), 0, (struct sockaddr *)&_srcaddr, &_addrlen);
+		send_data();
+	}
+
+	// got data from simulator, now activate the sending thread
+	pthread_create(&sender_thread, &sender_thread_attr, Simulator::sending_trampoline, NULL);
+	pthread_attr_destroy(&sender_thread_attr);
+
 	// wait for new mavlink messages to arrive
 	while (true) {
 
-		int pret = ::poll(&fds[0], (sizeof(fds)/sizeof(fds[0])), 100);
+		pret = ::poll(&fds[0], (sizeof(fds)/sizeof(fds[0])), 100);
 
 		//timed out
 		if (pret == 0)
@@ -405,17 +485,107 @@ void Simulator::updateSamples()
 				}
 			}
 		}
-
-		// publish these messages so that attitude estimator does not complain
-		hrt_abstime time_last = hrt_absolute_time();
-		baro.timestamp = time_last;
-		accel.timestamp = time_last;
-		gyro.timestamp = time_last;
-		mag.timestamp = time_last;
-		// publish the sensor values
-		orb_publish(ORB_ID(sensor_baro), _baro_pub, &baro);
-		orb_publish(ORB_ID(sensor_accel), _accel_pub, &baro);
-		orb_publish(ORB_ID(sensor_gyro), _gyro_pub, &baro);
-		orb_publish(ORB_ID(sensor_mag), _mag_pub, &mag);
 	}
+}
+
+int openUart(const char *uart_name, int baud)
+{
+	/* process baud rate */
+	int speed;
+
+	switch (baud) {
+	case 0:      speed = B0;      break;
+
+	case 50:     speed = B50;     break;
+
+	case 75:     speed = B75;     break;
+
+	case 110:    speed = B110;    break;
+
+	case 134:    speed = B134;    break;
+
+	case 150:    speed = B150;    break;
+
+	case 200:    speed = B200;    break;
+
+	case 300:    speed = B300;    break;
+
+	case 600:    speed = B600;    break;
+
+	case 1200:   speed = B1200;   break;
+
+	case 1800:   speed = B1800;   break;
+
+	case 2400:   speed = B2400;   break;
+
+	case 4800:   speed = B4800;   break;
+
+	case 9600:   speed = B9600;   break;
+
+	case 19200:  speed = B19200;  break;
+
+	case 38400:  speed = B38400;  break;
+
+	case 57600:  speed = B57600;  break;
+
+	case 115200: speed = B115200; break;
+
+	case 230400: speed = B230400; break;
+
+	case 460800: speed = B460800; break;
+
+	case 921600: speed = B921600; break;
+
+	default:
+		warnx("ERROR: Unsupported baudrate: %d\n\tsupported examples:\n\t9600, 19200, 38400, 57600\t\n115200\n230400\n460800\n921600\n",
+		      baud);
+		return -EINVAL;
+	}
+
+	/* open uart */
+	int uart_fd = ::open(uart_name, O_RDWR | O_NOCTTY);
+
+	if (uart_fd < 0) {
+		return uart_fd;
+	}
+
+
+	/* Try to set baud rate */
+	struct termios uart_config;
+    memset(&uart_config, 0, sizeof(uart_config));
+
+    int termios_state;
+
+	/* Back up the original uart configuration to restore it after exit */
+	if ((termios_state = tcgetattr(uart_fd, &uart_config)) < 0) {
+		warnx("ERR GET CONF %s: %d\n", uart_name, termios_state);
+		::close(uart_fd);
+		return -1;
+	}
+
+	/* Fill the struct for the new configuration */
+	tcgetattr(uart_fd, &uart_config);
+
+	/* USB serial is indicated by /dev/ttyACM0*/
+	if (strcmp(uart_name, "/dev/ttyACM0") != OK && strcmp(uart_name, "/dev/ttyACM1") != OK) {
+
+		/* Set baud rate */
+		if (cfsetispeed(&uart_config, speed) < 0 || cfsetospeed(&uart_config, speed) < 0) {
+			warnx("ERR SET BAUD %s: %d\n", uart_name, termios_state);
+			::close(uart_fd);
+			return -1;
+		}
+
+	}
+
+    // Make raw
+    cfmakeraw(&uart_config);
+
+	if ((termios_state = tcsetattr(uart_fd, TCSANOW, &uart_config)) < 0) {
+		warnx("ERR SET CONF %s\n", uart_name);
+		::close(uart_fd);
+		return -1;
+	}
+
+    return uart_fd;
 }
