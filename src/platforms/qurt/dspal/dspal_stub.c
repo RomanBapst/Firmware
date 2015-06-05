@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2015 Mark Charlebois. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,52 +30,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-
-#include "uORBUtils.hpp"
 #include <stdio.h>
-#include <errno.h>
+#include <dlfcn.h>
 
-int uORB::Utils::node_mkpath
-(
-        char *buf,
-        Flavor f,
-        const struct orb_metadata *meta,
-        int *instance
-)
+#define STACK_SIZE 0x8000
+static char __attribute__ ((aligned (16))) stack1[STACK_SIZE];
+
+int main(int argc, char* argv[])
 {
-  unsigned len;
+	int ret = 0;
+	char *builtin[]={"libgcc.so", "libc.so", "libstdc++.so"};
+	void *handle;
+	char *error;
+	void (*entry_function)() = NULL;
 
-  unsigned index = 0;
-
-  if (instance != nullptr) {
-    index = *instance;
-  }
-
-  len = snprintf(buf, orb_maxpath, "/%s/%s%d",
-      (f == PUBSUB) ? "obj" : "param",
-      meta->o_name, index);
-
-  if (len >= orb_maxpath) {
-    return -ENAMETOOLONG;
-  }
-
-  return OK;
+	printf("In DSPAL main\n");
+	dlinit(3, builtin);
+#if 0
+	handle = dlopen ("libdspal_client.so", RTLD_LAZY);
+	if (!handle) {
+		printf("Error opening libdspal_client.so\n");
+		return 1;
+	}
+	entry_function = dlsym(handle, "dspal_entry");
+	if (((error = dlerror()) != NULL) || (entry_function == NULL)) {
+		printf("Error dlsym for dspal_entry");
+		ret = 2;
+	}
+	dlclose(handle);
+#endif
+	return ret;
 }
 
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-int uORB::Utils::node_mkpath(char *buf, Flavor f,
-                               const std::string& orbMsgName )
-{
-  unsigned len;
-
-  unsigned index = 0;
-
-  len = snprintf(buf, orb_maxpath, "/%s/%s%d", (f == PUBSUB) ? "obj" : "param",
-                 orbMsgName.c_str(), index );
-
-  if (len >= orb_maxpath)
-    return -ENAMETOOLONG;
-
-  return OK;
-}

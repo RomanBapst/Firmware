@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2015 Mark Charlebois. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,52 +30,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-
-#include "uORBUtils.hpp"
+#include <px4_log.h>
+#include <semaphore.h>
 #include <stdio.h>
-#include <errno.h>
+#include "work_lock.h"
 
-int uORB::Utils::node_mkpath
-(
-        char *buf,
-        Flavor f,
-        const struct orb_metadata *meta,
-        int *instance
-)
+
+extern sem_t _work_lock[];
+
+void work_lock(int id)
 {
-  unsigned len;
-
-  unsigned index = 0;
-
-  if (instance != nullptr) {
-    index = *instance;
-  }
-
-  len = snprintf(buf, orb_maxpath, "/%s/%s%d",
-      (f == PUBSUB) ? "obj" : "param",
-      meta->o_name, index);
-
-  if (len >= orb_maxpath) {
-    return -ENAMETOOLONG;
-  }
-
-  return OK;
+  //PX4_INFO("work_lock %d", id);
+  sem_wait(&_work_lock[id]);
 }
 
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-int uORB::Utils::node_mkpath(char *buf, Flavor f,
-                               const std::string& orbMsgName )
+void work_unlock(int id)
 {
-  unsigned len;
-
-  unsigned index = 0;
-
-  len = snprintf(buf, orb_maxpath, "/%s/%s%d", (f == PUBSUB) ? "obj" : "param",
-                 orbMsgName.c_str(), index );
-
-  if (len >= orb_maxpath)
-    return -ENAMETOOLONG;
-
-  return OK;
+  //PX4_INFO("work_unlock %d", id);
+  sem_post(&_work_lock[id]);
 }

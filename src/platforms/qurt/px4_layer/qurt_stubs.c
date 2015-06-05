@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2015 Mark Charlebois. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,51 +31,59 @@
  *
  ****************************************************************************/
 
-#include "uORBUtils.hpp"
-#include <stdio.h>
-#include <errno.h>
+//extern "C" {
 
-int uORB::Utils::node_mkpath
-(
-        char *buf,
-        Flavor f,
-        const struct orb_metadata *meta,
-        int *instance
-)
+void _Read_uleb( void )
 {
-  unsigned len;
-
-  unsigned index = 0;
-
-  if (instance != nullptr) {
-    index = *instance;
-  }
-
-  len = snprintf(buf, orb_maxpath, "/%s/%s%d",
-      (f == PUBSUB) ? "obj" : "param",
-      meta->o_name, index);
-
-  if (len >= orb_maxpath) {
-    return -ENAMETOOLONG;
-  }
-
-  return OK;
 }
 
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-int uORB::Utils::node_mkpath(char *buf, Flavor f,
-                               const std::string& orbMsgName )
+void _Parse_fde_instr( void )
 {
-  unsigned len;
-
-  unsigned index = 0;
-
-  len = snprintf(buf, orb_maxpath, "/%s/%s%d", (f == PUBSUB) ? "obj" : "param",
-                 orbMsgName.c_str(), index );
-
-  if (len >= orb_maxpath)
-    return -ENAMETOOLONG;
-
-  return OK;
 }
+
+void _Parse_csd( void )
+{
+}
+
+void _Locksyslock( void )
+{
+}
+
+void _Unlocksyslock( void )
+{
+}
+
+void _Valbytes( void )
+{
+}
+
+void _Get_eh_data( void )
+{
+}
+
+void _Parse_lsda( void )
+{
+}
+
+void __cxa_guard_release( void )
+{
+}
+
+void _Read_enc_ptr( void )
+{
+}
+
+void _Read_sleb( void )
+{
+}
+
+void __cxa_guard_acquire( void )
+{
+}
+
+void __cxa_pure_virtual() 
+{ 
+   while (1); 
+}
+
+//}
