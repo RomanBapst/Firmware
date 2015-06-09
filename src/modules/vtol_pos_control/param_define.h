@@ -1,10 +1,6 @@
 /****************************************************************************
  *
-<<<<<<< HEAD
- *   Copyright (c) 2013 - 2015 PX4 Development Team. All rights reserved.
-=======
- *   Copyright (c) 2015 PX4 Development Team. All rights reserved.
->>>>>>> vtol_cleanup
+ *   Copyright (c) 2014 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,26 +32,35 @@
  ****************************************************************************/
 
 /**
-<<<<<<< HEAD
- * @file vtol_pos_control_main.cpp
- * VTOL position controller.
+ * @file vtol_att_control_params.c
+ * Parameters for vtol attitude controller.
  *
+ * @author Roman Bapst <bapstr@ethz.ch>
  */
 
-#include <vtol_pos_control/vtol_pos_control.h>
+#pragma once
 
-bool thread_running = false;     /**< Deamon status flag */
+#define PARAM_VTP_POS_XY_P_DEFAULT 1.0f
+#define PARAM_VTP_POS_Z_P_DEFAULT 1.0f
+#define PARAM_VTP_VEL_XY_P_DEFAULT 1.0f
+#define PARAM_VTP_VEL_Z_P_DEFAULT 1.0f
+#define PARAM_VTP_VEL_XY_D_DEFAULT 0.03f
+#define PARAM_VTP_VEL_Z_D_DEFAULT 0.03f
+#define PARAM_VTP_VEL_XY_I_DEFAULT 0.0f
+#define PARAM_VTP_VEL_Z_I_DEFAULT 0.5f
+#define PARAM_VTP_VEL_XY_FF_DEFAULT 0.5f
+#define PARAM_VTP_VEL_Z_FF_DEFAULT 0.5f
+#define PARAM_VTP_VZ_MAX_DEFAULT 1.0f
+#define PARAM_VTP_ACC_TRANS_DEFAULT 1.0f
+#define PARAM_VTP_PTCH_TRANSIT_DEFAULT 70.0f
+#define PARAM_VTP_SPD_TRANSIT_DEFAULT 12.0f
+#define PARAM_VTP_ACC_ANG_DEFAULT 30.0f
+#define PARAM_VTP_THRUST_SCALE_DEFAULT 0.06f
+#define PARAM_VTP_MAN_R_MAX_DEFAULT 35.0f
+#define PARAM_VTP_MAN_P_MAX_DEFAULT 35.0f
+#define PARAM_VTP_MAN_Y_MAX_DEFAULT 120.0f
+#define PARAM_VTP_PITCH_TRIM_DEFAULT 0.0f
+#define PARAM_VTP_PITCH_SENS_DEFAULT 1.0f
+#define PARAM_VTP_CRUISE_SPD_DEFAULT 10.0f
 
-int main(int argc, char **argv)
-{
-	px4::init(argc, argv, "vtol_pos_control");
-
-	PX4_INFO("starting");
-	VtolPositionControl posctl;
-	thread_running = true;
-	posctl.spin();
-
-	PX4_INFO("exiting.");
-	thread_running = false;
-	return 0;
-}
+#define PARAM_MC_YAW_P_DEFAULT 1.3f

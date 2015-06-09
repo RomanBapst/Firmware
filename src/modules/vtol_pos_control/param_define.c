@@ -32,12 +32,12 @@
  ****************************************************************************/
 
 /**
- * @file vtol_att_control_params.c
  * Parameters for vtol attitude controller.
  *
  * @author Roman Bapst <bapstr@ethz.ch>
  */
-
+#include <px4_defines.h>
+#include <vtol_pos_control/param_define.h>
 #include <systemlib/param/param.h>
 
  /**
@@ -47,7 +47,7 @@
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_POS_XY_P,1.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_POS_XY_P);
 
  /**
  * Vtol position error gain
@@ -56,7 +56,7 @@ PARAM_DEFINE_FLOAT(VTP_POS_XY_P,1.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_POS_Z_P,1.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_POS_Z_P);
 
  /**
  * Vtol position error gain
@@ -65,7 +65,7 @@ PARAM_DEFINE_FLOAT(VTP_POS_Z_P,1.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_VEL_XY_P,1.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_VEL_XY_P);
 
  /**
  * Vtol position error gain
@@ -74,7 +74,7 @@ PARAM_DEFINE_FLOAT(VTP_VEL_XY_P,1.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_VEL_Z_P,1.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_VEL_Z_P);
 
  /**
  * Vtol position error gain
@@ -83,7 +83,7 @@ PARAM_DEFINE_FLOAT(VTP_VEL_Z_P,1.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_VEL_XY_D,0.03f);
+PX4_PARAM_DEFINE_FLOAT(VTP_VEL_XY_D);
 
  /**
  * Vtol position error gain
@@ -92,7 +92,7 @@ PARAM_DEFINE_FLOAT(VTP_VEL_XY_D,0.03f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_VEL_Z_D,0.03f);
+PX4_PARAM_DEFINE_FLOAT(VTP_VEL_Z_D);
 
 /**
  * Vtol position error gain
@@ -101,7 +101,7 @@ PARAM_DEFINE_FLOAT(VTP_VEL_Z_D,0.03f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_VEL_XY_I,0.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_VEL_XY_I);
 
 /**
  * Vtol position error gain
@@ -110,16 +110,7 @@ PARAM_DEFINE_FLOAT(VTP_VEL_XY_I,0.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_VEL_Z_I,0.5f);
-
-/**
- * Vtol xy velocity feedforward gain
- *
- *
- * @min 0.0
- * @group VTOL Position Control
- */
-PARAM_DEFINE_FLOAT(VTP_VEL_XY_FF,0.5f);
+PX4_PARAM_DEFINE_FLOAT(VTP_VEL_Z_I);
 
 /**
  * Vtol xy velocity feedforward gain
@@ -128,7 +119,16 @@ PARAM_DEFINE_FLOAT(VTP_VEL_XY_FF,0.5f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_VEL_Z_FF,0.5f);
+PX4_PARAM_DEFINE_FLOAT(VTP_VEL_XY_FF);
+
+/**
+ * Vtol xy velocity feedforward gain
+ *
+ *
+ * @min 0.0
+ * @group VTOL Position Control
+ */
+PX4_PARAM_DEFINE_FLOAT(VTP_VEL_Z_FF);
 
 /**
  * Vtol position error gain
@@ -137,7 +137,7 @@ PARAM_DEFINE_FLOAT(VTP_VEL_Z_FF,0.5f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_VZ_MAX,1.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_VZ_MAX);
 
 /**
  * Vtol acceleration during transition
@@ -146,7 +146,7 @@ PARAM_DEFINE_FLOAT(VTP_VZ_MAX,1.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_ACC_TRANS,1.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_ACC_TRANS);
 
 /**
  * Vtol angle at which ok to switch to fw mode
@@ -155,7 +155,7 @@ PARAM_DEFINE_FLOAT(VTP_ACC_TRANS,1.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_PTCH_TRANSIT,70.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_PTCH_TRANSIT);
 
 /**
  * Vtol airspeed at which ok to switch to fw mode
@@ -164,7 +164,7 @@ PARAM_DEFINE_FLOAT(VTP_PTCH_TRANSIT,70.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_SPD_TRANSIT,12.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_SPD_TRANSIT);
 
 /**
  * Vtol angular acceleration during backtransition
@@ -173,7 +173,7 @@ PARAM_DEFINE_FLOAT(VTP_SPD_TRANSIT,12.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_ACC_ANG,30.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_ACC_ANG);
 
 /**
  * Vtol scale from desired thrust acceleration to thrust signal
@@ -182,7 +182,7 @@ PARAM_DEFINE_FLOAT(VTP_ACC_ANG,30.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_THRUST_SCALE,0.06f);
+PX4_PARAM_DEFINE_FLOAT(VTP_THRUST_SCALE);
 
 /**
  * Vtol scale from desired thrust acceleration to thrust signal
@@ -191,7 +191,7 @@ PARAM_DEFINE_FLOAT(VTP_THRUST_SCALE,0.06f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_MAN_R_MAX,35.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_MAN_R_MAX);
 
 /**
  * Vtol scale from desired thrust acceleration to thrust signal
@@ -200,7 +200,7 @@ PARAM_DEFINE_FLOAT(VTP_MAN_R_MAX,35.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_MAN_P_MAX,35.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_MAN_P_MAX);
 
 /**
  * Vtol scale from desired thrust acceleration to thrust signal
@@ -209,7 +209,7 @@ PARAM_DEFINE_FLOAT(VTP_MAN_P_MAX,35.0f);
  * @min 0.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_MAN_Y_MAX,120.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_MAN_Y_MAX);
 
 /**
  * Pitch trim for fw flight
@@ -219,7 +219,7 @@ PARAM_DEFINE_FLOAT(VTP_MAN_Y_MAX,120.0f);
  * @max 2.0
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_PITCH_TRIM,0.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_PITCH_TRIM);
 
 /**
  * Pitch sensitivity to control stick for fw flight
@@ -227,7 +227,7 @@ PARAM_DEFINE_FLOAT(VTP_PITCH_TRIM,0.0f);
  *
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_PITCH_SENS,1.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_PITCH_SENS);
 
 /**
  * Target cruise speed in forward flight
@@ -235,4 +235,15 @@ PARAM_DEFINE_FLOAT(VTP_PITCH_SENS,1.0f);
  *
  * @group VTOL Position Control
  */
-PARAM_DEFINE_FLOAT(VTP_CRUISE_SPD,10.0f);
+PX4_PARAM_DEFINE_FLOAT(VTP_CRUISE_SPD);
+
+/**
+ * Yaw P gain
+ *
+ * Yaw proportional gain, i.e. desired angular speed in rad/s for error 1 rad.
+ *
+ * @unit 1/s
+ * @min 0.0
+ * @group Multicopter Attitude Control
+ */
+PX4_PARAM_DEFINE_FLOAT(MC_YAW_P);

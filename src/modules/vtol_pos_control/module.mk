@@ -38,6 +38,10 @@
 MODULE_COMMAND	= vtol_pos_control
 
 SRCS		= vtol_pos_control_main.cpp \
-			 vtol_pos_control_parameters.c
-EXTRACXXFLAGS = -Wno-write-strings
+			  vtol_pos_control_start_nuttx.cpp \
+			  param_define.c \
+			  vtol_pos_control_params.cpp \
+			  vtol_pos_control.cpp
+EXTRACXXFLAGS = -Wframe-larger-than=3000
+
 

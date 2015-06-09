@@ -1,10 +1,6 @@
 /****************************************************************************
  *
-<<<<<<< HEAD
- *   Copyright (c) 2013 - 2015 PX4 Development Team. All rights reserved.
-=======
- *   Copyright (c) 2015 PX4 Development Team. All rights reserved.
->>>>>>> vtol_cleanup
+ *   Copyright (C) 2013 - 2015 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,26 +32,67 @@
  ****************************************************************************/
 
 /**
-<<<<<<< HEAD
- * @file vtol_pos_control_main.cpp
- * VTOL position controller.
+ * @file vtol_pos_control_start_nuttx.cpp
  *
  */
+#include <string.h>
+#include <cstdlib>
+#include <systemlib/err.h>
+#include <systemlib/systemlib.h>
 
-#include <vtol_pos_control/vtol_pos_control.h>
-
-bool thread_running = false;     /**< Deamon status flag */
-
-int main(int argc, char **argv)
+extern bool thread_running;
+int daemon_task;             /**< Handle of deamon task / thread */
+namespace px4
 {
-	px4::init(argc, argv, "vtol_pos_control");
+bool task_should_exit = false;
+}
+using namespace px4;
 
-	PX4_INFO("starting");
-	VtolPositionControl posctl;
-	thread_running = true;
-	posctl.spin();
+extern int main(int argc, char **argv);
 
-	PX4_INFO("exiting.");
-	thread_running = false;
-	return 0;
+extern "C" __EXPORT int vtol_pos_control_main(int argc, char *argv[]);
+int vtol_pos_control_main(int argc, char *argv[])
+{
+	if (argc < 1) {
+		errx(1, "usage: vtol_pos_control {start|stop|status}");
+	}
+
+	if (!strcmp(argv[1], "start")) {
+
+		if (thread_running) {
+			warnx("already running");
+			/* this is not an error */
+			exit(0);
+		}
+
+		task_should_exit = false;
+
+		daemon_task = px4_task_spawn_cmd("vtol_pos_control",
+				       SCHED_DEFAULT,
+				       SCHED_PRIORITY_MAX - 10,
+				       2048,
+				       main,
+					(argv) ? (char* const*)&argv[2] : (char* const*)NULL);
+
+		exit(0);
+	}
+
+	if (!strcmp(argv[1], "stop")) {
+		task_should_exit = true;
+		exit(0);
+	}
+
+	if (!strcmp(argv[1], "status")) {
+		if (thread_running) {
+			warnx("is running");
+
+		} else {
+			warnx("not started");
+		}
+
+		exit(0);
+	}
+
+	warnx("unrecognized command");
+	return 1;
 }
