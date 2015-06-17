@@ -227,6 +227,8 @@ void check_valid(hrt_abstime timestamp, hrt_abstime timeout, bool valid_in, bool
 
 transition_result_t set_main_state_rc(struct vehicle_status_s *status, struct manual_control_setpoint_s *sp_man);
 
+transition_result_t set_vtol_state_rc(struct vehicle_status_s *status, struct vtol_vehicle_status_s *vtol_status, struct manual_control_setpoint_s *sp_man);
+
 void set_control_mode();
 
 void print_reject_mode(struct vehicle_status_s *current_status, const char *msg);
@@ -328,6 +330,8 @@ int commander_main(int argc, char *argv[])
 				calib_ret = do_level_calibration(mavlink_fd);
 			} else if (!strcmp(argv[2], "esc")) {
 				calib_ret = do_esc_calibration(mavlink_fd, &armed);
+			} else if (!strcmp(argv[2], "airspeed")) {
+				calib_ret = do_airspeed_calibration(mavlink_fd);
 			} else {
 				warnx("argument %s unsupported.", argv[2]);
 			}
@@ -837,6 +841,8 @@ int commander_thread_main(int argc, char *argv[])
 	param_t _param_autosave_params = param_find("COM_AUTOS_PAR");
 	param_t _param_rc_in_off = param_find("COM_RC_IN_MODE");
 
+	param_t _param_vtol_fw_permanent_stab = param_find("VT_FW_PERM_STAB");
+
 	const char *main_states_str[vehicle_status_s::MAIN_STATE_MAX];
 	main_states_str[vehicle_status_s::MAIN_STATE_MANUAL]			= "MANUAL";
 	main_states_str[vehicle_status_s::MAIN_STATE_ALTCTL]			= "ALTCTL";
@@ -962,6 +968,13 @@ int commander_thread_main(int argc, char *argv[])
 	orb_advert_t mission_pub = nullptr;
 	mission_s mission;
 
+	/* Advertize to vtol vehicle status topic */
+	struct vtol_vehicle_status_s vtol_status;
+	memset(&vtol_status, 0, sizeof(vtol_status));
+	orb_advert_t vtol_status_pub = orb_advertise(ORB_ID(vtol_vehicle_status), &vtol_status);
+	vtol_status.vtol_in_rw_mode = true;		//default for vtol is rotary wing
+
+
 	if (dm_read(DM_KEY_MISSION_STATE, 0, &mission, sizeof(mission_s)) == sizeof(mission_s)) {
 		if (mission.dataman_id >= 0 && mission.dataman_id <= 1) {
 			if (mission.count > 0) {
@@ -998,6 +1011,7 @@ int commander_thread_main(int argc, char *argv[])
 	hrt_abstime last_idle_time = 0;
 
 	bool status_changed = true;
+	bool vtol_status_changed = true;
 	bool param_init_forced = true;
 
 	bool updated = false;
@@ -1116,13 +1130,6 @@ int commander_thread_main(int argc, char *argv[])
 	struct actuator_controls_s actuator_controls;
 	memset(&actuator_controls, 0, sizeof(actuator_controls));
 
-	/* Subscribe to vtol vehicle status topic */
-	int vtol_vehicle_status_sub = orb_subscribe(ORB_ID(vtol_vehicle_status));
-	struct vtol_vehicle_status_s vtol_status;
-	memset(&vtol_status, 0, sizeof(vtol_status));
-	vtol_status.vtol_in_rw_mode = true;		//default for vtol is rotary wing
-
-
 	control_status_leds(&status, &armed, true);
 
 	/* now initialized */
@@ -1131,7 +1138,7 @@ int commander_thread_main(int argc, char *argv[])
 
 	/* update vehicle status to find out vehicle type (required for preflight checks) */
 	param_get(_param_sys_type, &(status.system_type)); // get system type
-	status.is_rotary_wing = is_rotary_wing(&status) || is_vtol(&status);
+	status.is_rotary_wing = is_rotary_wing(&status) || (is_vtol(&status) && vtol_status.vtol_in_rw_mode);
 
 	bool checkAirspeed = false;
 	/* Perform airspeed check only if circuit breaker is not
@@ -1233,6 +1240,12 @@ int commander_thread_main(int argc, char *argv[])
 
 				/* re-check RC calibration */
 				rc_calibration_check(mavlink_fd);
+			}
+
+			/* vtol parameter */
+			if(status.is_vtol){
+				param_get(_param_vtol_fw_permanent_stab, &vtol_status.fw_permanent_stab);
+				status.vtol_fw_permanent_stab = vtol_status.fw_permanent_stab;
 			}
 
 			/* navigation parameters */
@@ -1412,20 +1425,6 @@ int commander_thread_main(int argc, char *argv[])
 				}
 
 				status_changed = true;
-			}
-		}
-
-		/* update vtol vehicle status*/
-		orb_check(vtol_vehicle_status_sub, &updated);
-
-		if (updated) {
-			/* vtol status changed */
-			orb_copy(ORB_ID(vtol_vehicle_status), vtol_vehicle_status_sub, &vtol_status);
-			status.vtol_fw_permanent_stab = vtol_status.fw_permanent_stab;
-
-			/* Make sure that this is only adjusted if vehicle really is of type vtol*/
-			if (is_vtol(&status)) {
-				status.is_rotary_wing = vtol_status.vtol_in_rw_mode;
 			}
 		}
 
@@ -1820,6 +1819,13 @@ int commander_thread_main(int argc, char *argv[])
 			/* evaluate the main state machine according to mode switches */
 			transition_result_t main_res = set_main_state_rc(&status, &sp_man);
 
+			/* update vtol_status for vtol vehicles based on the aux switch position */
+			if(status.is_vtol){
+				transition_result_t vtol_res = set_vtol_state_rc(&status, &vtol_status, &sp_man);
+				if(vtol_res == TRANSITION_CHANGED) vtol_status_changed = true;
+			}
+
+
 			/* play tune on mode change only if armed, blink LED always */
 			if (main_res == TRANSITION_CHANGED) {
 				tune_positive(armed.armed);
@@ -2041,8 +2047,8 @@ int commander_thread_main(int argc, char *argv[])
 			mavlink_log_info(mavlink_fd, "[cmd] nav state: %s", nav_states_str[status.nav_state]);
 		}
 
-		/* publish states (armed, control mode, vehicle status) at least with 5 Hz */
-		if (counter % (200000 / COMMANDER_MONITORING_INTERVAL) == 0 || status_changed) {
+		/* publish states (armed, control mode, vehicle status, vtol status) at least with 5 Hz */
+		if (counter % (200000 / COMMANDER_MONITORING_INTERVAL) == 0 || status_changed || vtol_status_changed) {
 			set_control_mode();
 			control_mode.timestamp = now;
 			orb_publish(ORB_ID(vehicle_control_mode), control_mode_pub, &control_mode);
@@ -2052,6 +2058,9 @@ int commander_thread_main(int argc, char *argv[])
 
 			armed.timestamp = now;
 			orb_publish(ORB_ID(actuator_armed), armed_pub, &armed);
+
+			vtol_status.timestamp = now;
+			orb_publish(ORB_ID(vtol_vehicle_status), vtol_status_pub, &vtol_status);
 		}
 
 		/* play arming and battery warning tunes */
@@ -2238,6 +2247,28 @@ control_status_leds(vehicle_status_s *status_local, const actuator_armed_s *actu
 	}
 
 	leds_counter++;
+}
+
+transition_result_t
+set_vtol_state_rc(struct vehicle_status_s *status_local, struct vtol_vehicle_status_s *vtol_status, struct manual_control_setpoint_s *sp_man)
+{
+	/* set vtol state according to RC regime switch */
+	transition_result_t res = TRANSITION_NOT_CHANGED;
+
+	if (sp_man->aux1 < 0.0f && !vtol_status->vtol_in_rw_mode) {		/* vehicle is in mc mode */
+		vtol_status->vtol_in_rw_mode = true;
+		res = TRANSITION_CHANGED;
+		if (status_local->is_vtol && !status_local->is_rotary_wing) {
+			status_local->is_rotary_wing = true;
+		}
+	} else if(sp_man->aux1 >= 0.0f && vtol_status->vtol_in_rw_mode){
+		vtol_status->vtol_in_rw_mode = false;
+		res = TRANSITION_CHANGED;
+		if (status_local->is_vtol && status_local->is_rotary_wing) {
+			status_local->is_rotary_wing = false;
+		}
+	}
+	return res;
 }
 
 transition_result_t
