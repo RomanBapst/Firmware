@@ -1624,34 +1624,49 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 void *
 MavlinkReceiver::receive_thread(void *arg)
 {
-#ifndef __PX4_POSIX
-	int uart_fd = _mavlink->get_uart_fd();
 
 	const int timeout = 500;
 	uint8_t buf[32];
-
 	mavlink_message_t msg;
+
+	struct pollfd fds[1];
+
+#ifndef __PX4_POSIX
+	int uart_fd = _mavlink->get_uart_fd();
 
 	/* set thread name */
 	char thread_name[24];
 	sprintf(thread_name, "mavlink_rcv_if%d", _mavlink->get_instance_id());
 	prctl(PR_SET_NAME, thread_name, getpid());
 
-	struct pollfd fds[1];
 	fds[0].fd = uart_fd;
 	fds[0].events = POLLIN;
+#endif
+
+#ifdef __PX4_POSIX
+	struct sockaddr_in srcaddr;
+	socklen_t addrlen = sizeof(srcaddr);
+	fds[0].fd = _mavlink->get_socket_fd();
+	fds[0].events = POLLIN;
+#endif
 
 	ssize_t nread = 0;
 
 	while (!_mavlink->_task_should_exit) {
-		if (poll(fds, 1, timeout) > 0) {
-
+		if (poll(&fds[0], 1, timeout) > 0) {
+#ifndef __PX4_POSIX
 			/* non-blocking read. read may return negative values */
 			if ((nread = ::read(uart_fd, buf, sizeof(buf))) < (ssize_t)sizeof(buf)) {
 				/* to avoid reading very small chunks wait for data before reading */
 				usleep(1000);
 			}
+#endif
 
+#ifdef __PX4_POSIX
+			if (fds[0].revents & POLLIN) {
+				nread = recvfrom(_mavlink->get_socket_fd(), buf, sizeof(buf), 0, (struct sockaddr *)&srcaddr, &addrlen);
+			}
+#endif
 			/* if read failed, this loop won't execute */
 			for (ssize_t i = 0; i < nread; i++) {
 				if (mavlink_parse_char(_mavlink->get_channel(), buf[i], &msg, &status)) {
@@ -1663,11 +1678,12 @@ MavlinkReceiver::receive_thread(void *arg)
 				}
 			}
 
+#ifndef __PX4_POSIX
 			/* count received bytes */
 			_mavlink->count_rxbytes(nread);
+#endif
 		}
 	}
-#endif
 
 	return NULL;
 }
