@@ -808,7 +808,6 @@ struct ms5611_bus_option {
 	uint8_t busnum;
 	MS5611 *dev;
 } bus_options[] = {
-#if 0
 #if defined(PX4_SPIDEV_EXT_BARO) && defined(PX4_SPI_BUS_EXT)
 	{ MS5611_BUS_SPI_EXTERNAL, "/dev/ms5611_spi_ext", &MS5611_spi_interface, PX4_SPI_BUS_EXT, NULL },
 #endif
@@ -819,8 +818,7 @@ struct ms5611_bus_option {
 	{ MS5611_BUS_I2C_INTERNAL, "/dev/ms5611_int", &MS5611_i2c_interface, PX4_I2C_BUS_ONBOARD, NULL },
 #endif
 #ifdef PX4_I2C_BUS_EXPANSION
-	{ MS5611_BUS_I2C_EXTERNAL, "/dev/ms5611_ext", &MS5611_i2c_interface, PX4_I2C_BUS_EXPANSION, NULL },
-#endif
+	{ MS5611_BUS_I2C_EXTERNAL, "/dev/i2c-1", &MS5611_i2c_interface, PX4_I2C_BUS_EXPANSION, NULL },
 #endif
 #ifdef PX4_SIM_BUS_TEST
 	{ MS5611_BUS_SIM_EXTERNAL, "/dev/ms5611_sim", &MS5611_sim_interface, PX4_SIM_BUS_TEST, NULL },
