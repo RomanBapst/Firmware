@@ -22,3 +22,4 @@ land_detector start fixedwing
 #
 # Misc apps
 #
+terrain_estimator start
