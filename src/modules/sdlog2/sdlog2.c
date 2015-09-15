@@ -101,6 +101,7 @@
 #include <uORB/topics/vtol_vehicle_status.h>
 #include <uORB/topics/time_offset.h>
 #include <uORB/topics/mc_att_ctrl_status.h>
+#include <uORB/topics/terrain_estimate.h>
 
 #include <systemlib/systemlib.h>
 #include <systemlib/param/param.h>
@@ -1228,6 +1229,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		int encoders_sub;
 		int tsync_sub;
 		int mc_att_ctrl_status_sub;
+		int terrain_estimate_sub;
 	} subs;
 
 	subs.cmd_sub = -1;
@@ -1262,6 +1264,10 @@ int sdlog2_thread_main(int argc, char *argv[])
 	subs.tsync_sub = -1;
 	subs.mc_att_ctrl_status_sub = -1;
 	subs.encoders_sub = -1;
+	subs.terrain_estimate_sub = orb_subscribe(ORB_ID(terrain_estimate));
+
+	struct terrain_estimate_s _terrain;
+	memset(&_terrain, 0, sizeof(_terrain));
 
 	/* add new topics HERE */
 
@@ -1696,7 +1702,12 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_LPSP.acc_z = buf.local_pos_sp.acc_z;
 			LOGBUFFER_WRITE_AND_COUNT(LPSP);
 		}
+		bool updated;
+		orb_check(subs.terrain_estimate_sub, &updated);
 
+		if (updated) {
+			orb_copy(ORB_ID(terrain_estimate), subs.terrain_estimate_sub, &_terrain);
+		}
 		/* --- GLOBAL POSITION --- */
 		if (copy_if_updated(ORB_ID(vehicle_global_position), &subs.global_pos_sub, &buf.global_pos)) {
 			log_msg.msg_type = LOG_GPOS_MSG;
@@ -1708,11 +1719,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_GPOS.vel_d = buf.global_pos.vel_d;
 			log_msg.body.log_GPOS.eph = buf.global_pos.eph;
 			log_msg.body.log_GPOS.epv = buf.global_pos.epv;
-			if (buf.global_pos.terrain_alt_valid) {
-				log_msg.body.log_GPOS.terrain_alt = buf.global_pos.terrain_alt;
-			} else {
-				log_msg.body.log_GPOS.terrain_alt = -1.0f;
-			}
+			log_msg.body.log_GPOS.terrain_alt = _terrain.dist_to_ground;
 			LOGBUFFER_WRITE_AND_COUNT(GPOS);
 		}
 
