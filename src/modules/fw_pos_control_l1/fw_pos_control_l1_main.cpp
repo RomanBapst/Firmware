@@ -81,6 +81,7 @@
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/terrain_estimate.h>
 #include <systemlib/param/param.h>
 #include <systemlib/err.h>
 #include <systemlib/pid/pid.h>
@@ -159,6 +160,7 @@ private:
 	int 		_params_sub;			/**< notification of parameter updates */
 	int 		_manual_control_sub;		/**< notification of manual control updates */
 	int		_sensor_combined_sub;		/**< for body frame accelerations */
+	int 	_terrain_estimate_sub;
 
 	orb_advert_t	_attitude_sp_pub;		/**< attitude setpoint */
 	orb_advert_t	_tecs_status_pub;		/**< TECS status publication */
@@ -174,6 +176,7 @@ private:
 	struct vehicle_global_position_s		_global_pos;			/**< global vehicle position */
 	struct position_setpoint_triplet_s		_pos_sp_triplet;		/**< triplet of mission items */
 	struct sensor_combined_s			_sensor_combined;		/**< for body frame accelerations */
+	struct terrain_estimate_s 			_terrain;
 
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
 
@@ -370,6 +373,11 @@ private:
 	void		vehicle_sensor_combined_poll();
 
 	/**
+	 * Check for terrain updates.
+	 */
+	void		vehicle_terrain_estimate_poll();
+
+	/**
 	 * Check for set triplet updates.
 	 */
 	void		vehicle_setpoint_poll();
@@ -394,7 +402,7 @@ private:
 	 * Return the terrain estimate during landing: uses the wp altitude value or the terrain estimate if available
 	 */
 	float		get_terrain_altitude_landing(float land_setpoint_alt, const struct vehicle_global_position_s &global_pos);
-
+	float 		get_terrain_altitude_land(float land_setpoint_alt, const struct vehicle_global_position_s &global_pos);
 	/**
 	 * Check if we are in a takeoff situation
 	 */
@@ -487,6 +495,7 @@ FixedwingPositionControl::FixedwingPositionControl() :
 	_params_sub(-1),
 	_manual_control_sub(-1),
 	_sensor_combined_sub(-1),
+	_terrain_estimate_sub(-1),
 
 /* publications */
 	_attitude_sp_pub(nullptr),
@@ -504,6 +513,7 @@ FixedwingPositionControl::FixedwingPositionControl() :
 	_global_pos(),
 	_pos_sp_triplet(),
 	_sensor_combined(),
+	_terrain(),
 
 /* performance counters */
 	_loop_perf(perf_alloc(PC_ELAPSED, "fw l1 control")),
@@ -819,6 +829,17 @@ FixedwingPositionControl::vehicle_sensor_combined_poll()
 }
 
 void
+FixedwingPositionControl::vehicle_terrain_estimate_poll()
+{
+	bool updated;
+	orb_check(_terrain_estimate_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(terrain_estimate), _terrain_estimate_sub, &_terrain);
+	}
+}
+
+void
 FixedwingPositionControl::vehicle_setpoint_poll()
 {
 	/* check if there is a new setpoint */
@@ -968,6 +989,15 @@ float FixedwingPositionControl::get_terrain_altitude_landing(float land_setpoint
 			land_useterrain = true;
 		}
 		return global_pos.terrain_alt;
+	} else {
+		return land_setpoint_alt;
+	}
+}
+
+float FixedwingPositionControl::get_terrain_altitude_land(float land_setpoint_alt, const struct vehicle_global_position_s &global_pos)
+{
+	if (_terrain.valid) {
+		return _global_pos.alt - _terrain.dist_to_ground;
 	} else {
 		return land_setpoint_alt;
 	}
@@ -1209,6 +1239,9 @@ FixedwingPositionControl::control_position(const math::Vector<2> &current_positi
 				wp_distance_save = 0.0f;
 			}
 
+			_att_sp.q_d[0] = wp_distance;
+			_att_sp.q_d[1] = target_bearing;
+
 			//warnx("wp dist: %d, alt err: %d, noret: %s", (int)wp_distance, (int)altitude_error, (land_noreturn) ? "YES" : "NO");
 			if (wp_distance < _parameters.land_heading_hold_horizontal_distance || land_noreturn_horizontal) {
 
@@ -1224,7 +1257,6 @@ FixedwingPositionControl::control_position(const math::Vector<2> &current_positi
 				}
 
 //					warnx("NORET: %d, target_bearing: %d, yaw: %d", (int)land_noreturn_horizontal, (int)math::degrees(target_bearing), (int)math::degrees(_att.yaw));
-
 				_l1_control.navigate_heading(target_bearing, _att.yaw, ground_speed_2d);
 
 				/* limit roll motion to prevent wings from touching the ground first */
@@ -1253,14 +1285,14 @@ FixedwingPositionControl::control_position(const math::Vector<2> &current_positi
 
 			/* Get an estimate of the terrain altitude if available, otherwise terrain_alt will be
 			 * equal to _pos_sp_triplet.current.alt */
-			float terrain_alt = get_terrain_altitude_landing(_pos_sp_triplet.current.alt, _global_pos);
+			float terrain_alt = get_terrain_altitude_land(_pos_sp_triplet.current.alt, _global_pos);
 
 			/* Calculate distance (to landing waypoint) and altitude of last ordinary waypoint L */
 			float L_altitude_rel = _pos_sp_triplet.previous.valid ?
 				_pos_sp_triplet.previous.alt - terrain_alt : 0.0f;
 
 			float landing_slope_alt_rel_desired = landingslope.getLandingSlopeRelativeAltitudeSave(wp_distance, bearing_lastwp_currwp, bearing_airplane_currwp);
-
+			_att_sp.q_d[2] = landing_slope_alt_rel_desired;
 			/* Check if we should start flaring with a vertical and a
 			 * horizontal limit (with some tolerance)
 			 * The horizontal limit is only applied when we are in front of the wp
@@ -1703,6 +1735,7 @@ FixedwingPositionControl::task_main()
 	_airspeed_sub = orb_subscribe(ORB_ID(airspeed));
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
 	_manual_control_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
+	_terrain_estimate_sub = orb_subscribe(ORB_ID(terrain_estimate));
 
 	/* rate limit control mode updates to 5Hz */
 	orb_set_interval(_control_mode_sub, 200);
@@ -1782,6 +1815,7 @@ FixedwingPositionControl::task_main()
 			vehicle_sensor_combined_poll();
 			vehicle_airspeed_poll();
 			vehicle_manual_control_setpoint_poll();
+			vehicle_terrain_estimate_poll();
 			// vehicle_baro_poll();
 
 			math::Vector<3> ground_speed(_global_pos.vel_n, _global_pos.vel_e,  _global_pos.vel_d);
