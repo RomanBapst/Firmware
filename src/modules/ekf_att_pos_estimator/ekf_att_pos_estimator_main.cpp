@@ -212,6 +212,8 @@ AttitudePositionEstimatorEKF::AttitudePositionEstimatorEKF() :
 {
 	_last_run = hrt_absolute_time();
 
+	_terrain_estimator = new TerrainEstimator();
+
 	_parameter_handles.vel_delay_ms = param_find("PE_VEL_DELAY_MS");
 	_parameter_handles.pos_delay_ms = param_find("PE_POS_DELAY_MS");
 	_parameter_handles.height_delay_ms = param_find("PE_HGT_DELAY_MS");
@@ -708,6 +710,11 @@ void AttitudePositionEstimatorEKF::task_main()
 
 					// Run EKF data fusion steps
 					updateSensorFusion(_gpsIsGood, _newDataMag, _newRangeData, _newHgtData, _newAdsData);
+
+					// Run serparate terrain estimator
+					_terrain_estimator->update_state(&_att, &_sensor_combined, &_distance, &_gps);
+			 		_terrain_estimator->predict(_ekf->dtIMU);
+			 		_terrain_estimator->measurement_update();
 
 					// Publish attitude estimations
 					publishAttitude();

@@ -69,6 +69,7 @@
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 
 #include <geo/geo.h>
+#include <terrain_estimation/terrain_estimator.h>
 #include <systemlib/perf_counter.h>
 
 //Forward declaration
@@ -259,6 +260,8 @@ private:
     }       _parameter_handles;     /**< handles for interesting parameters */
 
     AttPosEKF                   *_ekf;
+
+    TerrainEstimator            *_terrain_estimator;
 
     /* Low pass filter for attitude rates */
     math::LowPassFilter2p _LP_att_P;
