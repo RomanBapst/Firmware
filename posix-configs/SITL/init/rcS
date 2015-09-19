@@ -34,6 +34,7 @@ accelsim start
 barosim start
 adcsim start
 gpssim start
+rangefindersim start
 pwm_out_sim mode_pwm
 sleep 1
 sensors start

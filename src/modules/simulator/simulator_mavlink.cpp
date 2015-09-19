@@ -198,6 +198,8 @@ void Simulator::update_sensors(mavlink_hil_sensor_t *imu) {
 	airspeed.diff_pressure = imu->diff_pressure;
 
 	write_airspeed_data((void *)&airspeed);
+
+	RawRangeData rangefinder;
 }
 
 void Simulator::update_gps(mavlink_hil_gps_t *gps_sim) {

@@ -118,6 +118,11 @@ struct RawGPSData {
 };
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+struct RawRangeData {
+	float range;
+};
+
 template <typename RType> class Report {
 public:
 	Report(int readers) :
@@ -199,6 +204,7 @@ public:
 	bool getBaroSample(uint8_t *buf, int len);
 	bool getGPSSample(uint8_t *buf, int len);
 	bool getAirspeedSample(uint8_t *buf, int len);
+	bool getRangeSample(uint8_t *buf, int len);
 
 	void write_MPU_data(void *buf);
 	void write_accel_data(void *buf);
@@ -206,6 +212,7 @@ public:
 	void write_baro_data(void *buf);
 	void write_gps_data(void *buf);
 	void write_airspeed_data(void *buf);
+	void write_range_data(void *buf);
 
 	bool isInitialized() { return _initialized; }
 
@@ -217,6 +224,7 @@ private:
 	_mag(1),
 	_gps(1),
 	_airspeed(1),
+	_range(1),
 	_accel_pub(nullptr),
 	_baro_pub(nullptr),
 	_gyro_pub(nullptr),
@@ -249,6 +257,7 @@ private:
 	simulator::Report<simulator::RawMagData>	_mag;
 	simulator::Report<simulator::RawGPSData>	_gps;
 	simulator::Report<simulator::RawAirspeedData> _airspeed;
+	simulator::Report<simulator::RawRangeData>	  _range;
 
 	// uORB publisher handlers
 	orb_advert_t _accel_pub;
