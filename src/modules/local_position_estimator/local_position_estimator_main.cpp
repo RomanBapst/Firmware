@@ -40,7 +40,11 @@
  * Local position estimator
  */
 
-#include <nuttx/config.h>
+//#include <nuttx/config.h>
+#include <px4_config.h>
+#include <px4_defines.h>
+#include <px4_tasks.h>
+#include <px4_posix.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,7 +86,6 @@ usage(const char *reason)
 	}
 
 	fprintf(stderr, "usage: local_position_estimator {start|stop|status} [-p <additional params>]\n\n");
-	exit(1);
 }
 
 /**
@@ -103,9 +106,9 @@ int local_position_estimator_main(int argc, char *argv[])
 	if (!strcmp(argv[1], "start")) {
 
 		if (thread_running) {
-			warnx("already running");
+			PX4_WARN("already running");
 			/* this is not an error */
-			exit(0);
+			return 0;
 		}
 
 		thread_should_exit = false;
@@ -116,33 +119,33 @@ int local_position_estimator_main(int argc, char *argv[])
 						 6500,
 						 local_position_estimator_thread_main,
 						 (argv) ? (char * const *)&argv[2] : (char * const *)NULL);
-		exit(0);
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "stop")) {
 		thread_should_exit = true;
-		exit(0);
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "status")) {
 		if (thread_running) {
-			warnx("is running");
+			PX4_WARN("is running");
 
 		} else {
-			warnx("not started");
+			PX4_WARN("not started");
 		}
 
-		exit(0);
+		return 0;
 	}
 
 	usage("unrecognized command");
-	exit(1);
+	return 1;
 }
 
 int local_position_estimator_thread_main(int argc, char *argv[])
 {
 
-	warnx("starting");
+	PX4_WARN("starting");
 
 	using namespace control;
 
@@ -154,7 +157,7 @@ int local_position_estimator_thread_main(int argc, char *argv[])
 		est.update();
 	}
 
-	warnx("exiting.");
+	PX4_WARN("exiting.");
 
 	thread_running = false;
 

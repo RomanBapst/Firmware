@@ -1,7 +1,7 @@
 #include "BlockLocalPositionEstimator.hpp"
 #include <mavlink/mavlink_log.h>
 #include <fcntl.h>
-#include <nuttx/math.h>
+//#include <nuttx/math.h>
 #include <systemlib/err.h>
 
 static const int 		MIN_FLOW_QUALITY = 100;
@@ -287,7 +287,7 @@ void BlockLocalPositionEstimator::update()
 		// should we do a reinit
 		// of sensors here?
 		// don't want it to take too long
-		if (!isfinite(_x(i))) {
+		if (!PX4_ISFINITE(_x(i))) {
 			reinit_x = true;
 			break;
 		}
@@ -307,7 +307,7 @@ void BlockLocalPositionEstimator::update()
 
 	for (int i = 0; i < n_x; i++) {
 		for (int j = 0; j < n_x; j++) {
-			if (!isfinite(_P(i, j))) {
+			if (!PX4_ISFINITE(_P(i, j))) {
 				reinit_P = true;
 				break;
 			}
@@ -620,9 +620,9 @@ void BlockLocalPositionEstimator::initmocap()
 void BlockLocalPositionEstimator::publishLocalPos()
 {
 	// publish local position
-	if (isfinite(_x(X_x)) && isfinite(_x(X_y)) && isfinite(_x(X_z)) &&
-	    isfinite(_x(X_vx)) && isfinite(_x(X_vy))
-	    && isfinite(_x(X_vz))) {
+	if (PX4_ISFINITE(_x(X_x)) && PX4_ISFINITE(_x(X_y)) && PX4_ISFINITE(_x(X_z)) &&
+	    PX4_ISFINITE(_x(X_vx)) && PX4_ISFINITE(_x(X_vy))
+	    && PX4_ISFINITE(_x(X_vz))) {
 		_pub_lpos.get().timestamp = _timeStamp;
 		_pub_lpos.get().xy_valid = _canEstimateXY;
 		_pub_lpos.get().z_valid = _canEstimateZ;
@@ -660,9 +660,9 @@ void BlockLocalPositionEstimator::publishGlobalPos()
 	map_projection_reproject(&_map_ref, _x(X_x), _x(X_y), &lat, &lon);
 	float alt = -_x(X_z) + _altHome;
 
-	if (isfinite(lat) && isfinite(lon) && isfinite(alt) &&
-	    isfinite(_x(X_vx)) && isfinite(_x(X_vy)) &&
-	    isfinite(_x(X_vz))) {
+	if (PX4_ISFINITE(lat) && PX4_ISFINITE(lon) && PX4_ISFINITE(alt) &&
+	    PX4_ISFINITE(_x(X_vx)) && PX4_ISFINITE(_x(X_vy)) &&
+	    PX4_ISFINITE(_x(X_vz))) {
 		_pub_gpos.get().timestamp = _timeStamp;
 		_pub_gpos.get().time_utc_usec = _sub_gps.get().time_utc_usec;
 		_pub_gpos.get().lat = lat;
@@ -684,10 +684,10 @@ void BlockLocalPositionEstimator::publishGlobalPos()
 void BlockLocalPositionEstimator::publishFilteredFlow()
 {
 	// publish filtered flow
-	if (isfinite(_pub_filtered_flow.get().sumx) &&
-	    isfinite(_pub_filtered_flow.get().sumy) &&
-	    isfinite(_pub_filtered_flow.get().vx) &&
-	    isfinite(_pub_filtered_flow.get().vy)) {
+	if (PX4_ISFINITE(_pub_filtered_flow.get().sumx) &&
+	    PX4_ISFINITE(_pub_filtered_flow.get().sumy) &&
+	    PX4_ISFINITE(_pub_filtered_flow.get().vx) &&
+	    PX4_ISFINITE(_pub_filtered_flow.get().vy)) {
 		_pub_filtered_flow.update();
 	}
 }

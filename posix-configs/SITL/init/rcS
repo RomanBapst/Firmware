@@ -40,7 +40,7 @@ sensors start
 land_detector start multicopter
 navigator start
 attitude_estimator_q start
-position_estimator_inav start
+local_position_estimator start
 mc_pos_control start
 mc_att_control start
 mixer load /dev/pwm_output0 ../../ROMFS/px4fmu_common/mixers/quad_x.main.mix
