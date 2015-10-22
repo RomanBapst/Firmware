@@ -132,8 +132,6 @@ set_property(CACHE CONFIG PROPERTY STRINGS ${configs})
 set(THREADS "4" CACHE STRING
 	"number of threads to use for external build processes")
 set(DEBUG_PORT "/dev/ttyACM0" CACHE STRING "debugging port")
-set(DEBUGGER "disable" CACHE STRING "debugger to use")
-set_property(CACHE DEBUGGER PROPERTY STRINGS "disable;gdb;lldb")
 
 #=============================================================================
 # configuration

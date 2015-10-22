@@ -66,7 +66,6 @@ all: px4fmu-v2_default
 # by cmake in the subdirectory
 ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 j ?= 4
-DEBUGGER ?= "disable"
 
 # disable ninja by default for now because it hides upload progress
 #NINJA_BUILD := $(shell ninja --version 2>/dev/null)
@@ -90,7 +89,7 @@ endif
 # --------------------------------------------------------------------
 # describe how to build a cmake config
 define cmake-build
-+@if [ ! -e $(PWD)/build_$@/CMakeCache.txt ]; then git submodule update --init --recursive --force && mkdir -p $(PWD)/build_$@ && cd $(PWD)/build_$@ && cmake .. -G$(PX4_CMAKE_GENERATOR) -DCONFIG=$(1) -DDEBUGGER=$(DEBUGGER); fi
++@if [ ! -e $(PWD)/build_$@/CMakeCache.txt ]; then git submodule update --init --recursive --force && mkdir -p $(PWD)/build_$@ && cd $(PWD)/build_$@ && cmake .. -G$(PX4_CMAKE_GENERATOR) -DCONFIG=$(1); fi
 +$(PX4_MAKE) -C $(PWD)/build_$@ $(PX4_MAKE_ARGS) $(ARGS)
 endef
 
@@ -138,14 +137,13 @@ posix_sitl_default: posix_sitl_simple
 
 ros: ros_sitl_simple
 
-sitl_quad:
-	@echo "Deprecated. Use 'make posix_sitl_default run_sitl_quad' instead."
+sitl_deprecation:
+	@echo "Deprecated. Use 'make posix_sitl_default run_sitl' instead."
+	@echo "Change init script with 'make posix_sitl_default config'"
 
-sitl_plane:
-	@echo "Deprecated. Use 'make posix_sitl_default run_sitl_plane' instead."
-
-sitl_ros:
-	@echo "Deprecated. Use 'make posix_sitl_default run_sitl_ros' instead."
+sitl_quad: sitl_deprecation
+sitl_plane: sitl_deprecation
+sitl_ros: sitl_deprecation
 
 # Other targets
 # --------------------------------------------------------------------
@@ -158,8 +156,8 @@ clean:
 	@(cd src/modules/uavcan/libuavcan && git clean -d -f -x)
 
 # targets handled by cmake
-cmake_targets = test upload package package_source debug debug_tui debug_ddd debug_io debug_io_tui debug_io_ddd check_weak libuavcan \
-	run_sitl_iris run_sitl_ros run_sitl_quad run_sitl_plane config
+cmake_targets = test upload package package_source debug debug_tui debug_ddd debug_io debug_io_tui debug_io_ddd check_weak \
+	run_sitl config
 $(foreach targ,$(cmake_targets),$(eval $(call cmake-targ,$(targ))))
 
 .PHONY: clean

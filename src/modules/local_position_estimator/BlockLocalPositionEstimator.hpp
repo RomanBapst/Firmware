@@ -5,6 +5,14 @@
 #include <systemlib/perf_counter.h>
 #include <lib/geo/geo.h>
 
+#ifdef USE_MATRIX_LIB
+#include "matrix/src/Matrix.hpp"
+using namespace matrix;
+#else
+#include <Eigen/Eigen>
+using namespace Eigen;
+#endif
+
 // uORB Subscriptions
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/vehicle_status.h>
@@ -117,7 +125,7 @@ private:
 	static const uint8_t n_y_baro = 1;
 	static const uint8_t n_y_lidar = 1;
 	static const uint8_t n_y_gps = 6;
-	static const uint8_t n_y_vision_pos = 3;
+	static const uint8_t n_y_vision = 3;
 	static const uint8_t n_y_mocap = 3;
 	enum {X_x = 0, X_y, X_z, X_vx, X_vy, X_vz}; //, X_bx, X_by, X_bz};
 	enum {U_ax = 0, U_ay, U_az};
@@ -222,7 +230,7 @@ private:
 	BlockParamFloat  _pn_v_noise_power;
 
 	// misc
-	struct pollfd _polls[3];
+	struct pollfd _polls[1];
 	uint64_t _timeStamp;
 	uint64_t _time_last_xy;
 	uint64_t _time_last_flow;
@@ -260,8 +268,8 @@ private:
 	float _lidarAltHome;
 	float _sonarAltHome;
 	float _flowAltHome;
-	math::Vector<3> _visionHome;
-	math::Vector<3> _mocapHome;
+	Vector3f _visionHome;
+	Vector3f _mocapHome;
 
 	// flow integration
 	float _flowX;
@@ -294,7 +302,7 @@ private:
 	perf_counter_t _err_perf;
 
 	// state space
-	math::Vector<n_x>  _x; // state vector
-	math::Vector<n_u>  _u; // input vector
-	math::Matrix<n_x, n_x>  _P; // state covariance matrix
+	Matrix<float, n_x, 1>  _x; // state vector
+	Matrix<float, n_u, 1>  _u; // input vector
+	Matrix<float, n_x, n_x>  _P; // state covariance matrix
 };

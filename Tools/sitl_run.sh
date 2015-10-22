@@ -5,14 +5,16 @@ debugger=$2
 program=$3
 build_path=$4
 
+echo SITL ARGS
+echo rc_script: $rc_script
+echo debugger: $debugger
+echo program: $program
+echo build_path: $buid_path
+
 if [ "$#" != 4 ]
 then
 	echo usage: sitl_run.sh rc_script debugger program build_path
 	echo args
-	echo rc_script: $rc_script
-	echo debugger: $debugger
-	echo program: $program
-	echo build_path: $buid_path
 	exit 1
 fi
 

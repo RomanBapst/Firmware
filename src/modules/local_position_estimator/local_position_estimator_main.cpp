@@ -70,9 +70,9 @@ int local_position_estimator_thread_main(int argc, char *argv[]);
 /**
  * Print the correct usage.
  */
-static void usage(const char *reason);
+static int usage(const char *reason);
 
-static void
+static int
 usage(const char *reason)
 {
 	if (reason) {
@@ -80,7 +80,7 @@ usage(const char *reason)
 	}
 
 	fprintf(stderr, "usage: local_position_estimator {start|stop|status} [-p <additional params>]\n\n");
-	exit(1);
+	return 1;
 }
 
 /**
@@ -103,23 +103,23 @@ int local_position_estimator_main(int argc, char *argv[])
 		if (thread_running) {
 			warnx("already running");
 			/* this is not an error */
-			exit(0);
+			return 0;
 		}
 
 		thread_should_exit = false;
 
 		deamon_task = px4_task_spawn_cmd("lp_estimator",
 						 SCHED_DEFAULT,
-						 SCHED_PRIORITY_MAX - 10,
+						 SCHED_PRIORITY_MAX - 5,
 						 6500,
 						 local_position_estimator_thread_main,
 						 (argv) ? (char *const *)&argv[2] : (char *const *)NULL);
-		exit(0);
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "stop")) {
 		thread_should_exit = true;
-		exit(0);
+		return 0;
 	}
 
 	if (!strcmp(argv[1], "status")) {
@@ -130,11 +130,11 @@ int local_position_estimator_main(int argc, char *argv[])
 			warnx("not started");
 		}
 
-		exit(0);
+		return 0;
 	}
 
 	usage("unrecognized command");
-	exit(1);
+	return 1;
 }
 
 int local_position_estimator_thread_main(int argc, char *argv[])

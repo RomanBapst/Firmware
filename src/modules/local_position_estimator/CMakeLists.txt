@@ -35,6 +35,10 @@ if(${OS} STREQUAL "nuttx")
 elseif(${OS} STREQUAL "posix")
 	list(APPEND MODULE_CFLAGS -Wno-error)
 endif()
+
+# use custom matrix lib instead of Eigen
+add_definitions(-DUSE_MATRIX_LIB)
+
 px4_add_module(
 	MODULE modules__local_position_estimator
 	MAIN local_position_estimator
