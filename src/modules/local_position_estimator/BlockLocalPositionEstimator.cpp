@@ -184,25 +184,26 @@ void BlockLocalPositionEstimator::update()
 {
 	// wait for a sensor update,
 	// check for exit condition every 100 ms
-	int ret = poll(_polls, 1, 100);
-	if (ret <= 0) {
-		// poll error
-		printf("poll error\n");
+	int ret = px4_poll(&_polls[0], sizeof(_polls) / sizeof(_polls[0]), 100);
+
+	if (ret == 0) {
+		// timeout
+		return;
+	}
+
+	if (ret < 0) {
+		PX4_WARN("poll error %d, %d", ret, errno);
+		// sleep a bit before next try
+		usleep(100000);
+		return;
 	}
 
 	uint64_t newTimeStamp = hrt_absolute_time();
 	float dt = (newTimeStamp - _timeStamp) / 1.0e6f;
-	if (dt < 0.05f || dt > 1.0f) {
+	if (dt < 0.0002f || dt > 1.0f) {
+		_timeStamp = newTimeStamp;
 		return;
 	}
-	_timeStamp = newTimeStamp;
-
-	// check for sane values of dt
-	// to prevent large control responses
-	if (dt > 1.0f || dt < 0) {
-		return;
-	}
-	//printf("dt: %g\n", double(dt));
 
 	// set dt for all child blocks
 	setDt(dt);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <px4_posix.h>
 #include <controllib/uorb/blocks.hpp>
 #include <mathlib/mathlib.h>
 #include <systemlib/perf_counter.h>
@@ -232,7 +233,7 @@ private:
 	BlockParamFloat  _pn_b_noise_power;
 
 	// misc
-	struct pollfd _polls[1];
+	px4_pollfd_struct_t _polls[1];
 	uint64_t _timeStamp;
 	uint64_t _time_last_xy;
 	uint64_t _time_last_flow;
