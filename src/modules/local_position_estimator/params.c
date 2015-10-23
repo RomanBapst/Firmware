@@ -200,6 +200,16 @@ PARAM_DEFINE_FLOAT(LPE_PN_P, 0.0f);
 PARAM_DEFINE_FLOAT(LPE_PN_V, 0.0f);
 
 /**
+ * Accel bias propagation process noise power (variance*sampling rate).
+ *
+ * @group Local Position Estimator
+ * @unit (m/s)-s
+ * @min 0
+ * @max 1
+ */
+PARAM_DEFINE_FLOAT(LPE_PN_B, 1e-5f);
+
+/**
  * Fault detection threshold, for chi-squared dist.
  *
  * @group Local Position Estimator

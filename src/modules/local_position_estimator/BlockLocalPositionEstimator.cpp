@@ -66,6 +66,7 @@ BlockLocalPositionEstimator::BlockLocalPositionEstimator() :
 	_mocap_p_stddev(this, "VIC_P"),
 	_pn_p_noise_power(this, "PN_P"),
 	_pn_v_noise_power(this, "PN_V"),
+	_pn_b_noise_power(this, "PN_B"),
 
 	// misc
 	_polls(),
@@ -156,8 +157,7 @@ BlockLocalPositionEstimator::BlockLocalPositionEstimator() :
 	//_polls[POLL_SENSORS].events = POLLIN;
 
 	// initialize P to identity*0.1
-	_P.setIdentity();
-	_P *= 0.1;
+	initP();
 
 	_x.setZero();
 	_u.setZero();
@@ -326,8 +326,7 @@ void BlockLocalPositionEstimator::update()
 	if (reinit_P) {
 		mavlink_log_info(_mavlink_fd, "[lpe] reinit P");
 		warnx("[lpe] reinit P");
-		_P.setIdentity();
-		_P *= 0.1;
+		initP();
 	}
 
 	// do prediction
@@ -733,6 +732,19 @@ void BlockLocalPositionEstimator::publishFilteredFlow()
 	}
 }
 
+void BlockLocalPositionEstimator::initP() {
+	_P.setZero();
+	_P(X_x, X_x) = 1;
+	_P(X_y, X_y) = 1;
+	_P(X_z, X_z) = 1;
+	_P(X_vx, X_vx) = 1;
+	_P(X_vy, X_vy) = 1;
+	_P(X_vz, X_vz) = 1;
+	_P(X_bx, X_bx) = 1e-6;
+	_P(X_by, X_by) = 1e-6;
+	_P(X_bz, X_bz) = 1e-6;
+}
+
 void BlockLocalPositionEstimator::predict()
 {
 	// if can't update anything, don't propagate
@@ -742,8 +754,9 @@ void BlockLocalPositionEstimator::predict()
 	if (_integrate.get() && _sub_att.get().R_valid) {
 		Matrix3f R_att(_sub_att.get().R);
 		Vector3f a(_sub_sensor.get().accelerometer_m_s2);
-		_u = R_att * a;
-		_u(2) += 9.81f; // add g
+		Vector3f b(_x(X_bx), _x(X_by), _x(X_bz));
+		_u = R_att * (a - b);
+		_u(U_az) += 9.81f; // add g
 
 	} else
 		_u = Vector3f(0, 0, 0);
@@ -755,11 +768,21 @@ void BlockLocalPositionEstimator::predict()
 	A(X_x, X_vx) = 1;
 	A(X_y, X_vy) = 1;
 	A(X_z, X_vz) = 1;
-	// derivative of velocity is accelerometer
-	// 	bias + acceleration
-	//_A(X_vx, X_bx) = 1;
-	//_A(X_vy, X_by) = 1;
-	//_A(X_vz, X_bz) = 1;
+
+	// derivative of velocity is accelerometer acceleration
+	// (in input matrix) - bias (in body frame)
+	Matrix3f R_att(_sub_att.get().R);
+	A(X_vx, X_bx) = -R_att(0,0);
+	A(X_vx, X_by) = -R_att(0,1);
+	A(X_vx, X_bz) = -R_att(0,2);
+
+	A(X_vy, X_bx) = -R_att(1,0);
+	A(X_vy, X_by) = -R_att(1,1);
+	A(X_vy, X_bz) = -R_att(1,2);
+
+	A(X_vz, X_bx) = -R_att(2,0);
+	A(X_vz, X_by) = -R_att(2,1);
+	A(X_vz, X_bz) = -R_att(2,2);
 
 	// input matrix
 	Matrix<float, n_x, n_u>  B; // input matrix
@@ -784,6 +807,13 @@ void BlockLocalPositionEstimator::predict()
 	Q(X_vx, X_vx) = _pn_v_noise_power.get();
 	Q(X_vy, X_vy) = _pn_v_noise_power.get();
 	Q(X_vz, X_vz) = _pn_v_noise_power.get();
+
+	// technically, the noise is in the body frame, 
+	// but the components are all the same, so
+	// ignoring for now
+	Q(X_bx, X_bx) = _pn_b_noise_power.get();
+	Q(X_by, X_by) = _pn_b_noise_power.get();
+	Q(X_bz, X_bz) = _pn_b_noise_power.get();
 
 	// continuous time kalman filter prediction
 	Matrix<float, n_x, 1> dx = (A * _x + B * _u) * getDt();

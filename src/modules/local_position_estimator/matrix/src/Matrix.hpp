@@ -220,6 +220,22 @@ public:
 		return res;
 	}
 
+	Matrix<T, M, M> expm(float dt, size_t n) const {
+		Matrix<float, M, M> res;
+		res.setIdentity();
+		Matrix<float, M, M> A_pow = *this;
+		float k_fact = 1;
+		size_t k = 1;
+		while (k < n) {
+			res += A_pow*(float(pow(dt, k))/k_fact);
+			if (k==n) break;
+			A_pow *= A_pow;
+			k_fact *= k;
+			k++;
+		}
+		return res;
+	}
+
 	Matrix<T, M, 1> diagonal() const {
 		Matrix<T, M, 1> res;
 		// force square for now
