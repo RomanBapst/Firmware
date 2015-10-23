@@ -5,6 +5,9 @@ debugger=$2
 program=$3
 build_path=$4
 
+# kill all existing java applets
+pkill java
+
 echo SITL ARGS
 echo rc_script: $rc_script
 echo debugger: $debugger
