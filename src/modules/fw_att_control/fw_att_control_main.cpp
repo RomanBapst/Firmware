@@ -1088,6 +1088,24 @@ FixedwingAttitudeControl::task_main()
 					math::Quaternion q_sp;
 					q_sp.from_euler(roll_sp, pitch_sp, 0.0f);
 
+					math::Vector<3> zB = {0, 0, 1};
+
+					math::Vector<3> zI = q.conjugate(zB);
+
+					math::Vector<3> tilt_axis = zB % zI;
+					tilt_axis.normalize();
+
+					float cos_tilt_angle = zI * zB;
+					float tilt_angle = acosf(cos_tilt_angle);
+
+					tilt_axis *= sinf(0.5f * tilt_angle);
+
+					math::Quaternion q_new = {cosf(0.5f * tilt_angle), tilt_axis(0), tilt_axis(1), tilt_axis(2)};
+
+					q = q_new;
+
+					//printf("q1 %.5f q2 %.5f q3 %.5f q4 %.5f \n", (double)q.data[0], (double)q.data[1], (double)q.data[2], (double)q.data[3]);
+
 					// compute quaternion error
 					math::Quaternion q_sp_inv = {q_sp(0),-q_sp(1),-q_sp(2),-q_sp(3)};
 					math::Quaternion q_error;
