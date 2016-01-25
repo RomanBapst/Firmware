@@ -74,6 +74,7 @@
 #include <uORB/topics/vehicle_global_position.h>
 #include <uORB/topics/estimator_status.h>
 #include <uORB/topics/ekf2_innovations.h>
+#include <uORB/topics/ekf2_replay.h>
 
 #include <ecl/EKF/ekf.h>
 
@@ -135,6 +136,7 @@ private:
 	orb_advert_t _vehicle_global_position_pub;
 	orb_advert_t _estimator_status_pub;
 	orb_advert_t _estimator_innovations_pub;
+	orb_advert_t _replay_pub;
 
 
 	/* Low pass filter for attitude rates */
@@ -181,6 +183,7 @@ Ekf2::Ekf2():
 	_vehicle_global_position_pub(nullptr),
 	_estimator_status_pub(nullptr),
 	_estimator_innovations_pub(nullptr),
+	_replay_pub(nullptr),
 	_lp_roll_rate(250.0f, 30.0f),
 	_lp_pitch_rate(250.0f, 30.0f),
 	_lp_yaw_rate(250.0f, 20.0f),
@@ -512,6 +515,37 @@ void Ekf2::task_main()
 			orb_publish(ORB_ID(ekf2_innovations), _estimator_innovations_pub, &innovations);
 		}
 
+		// publish replay message
+		struct ekf2_replay_s replay = {};
+		replay.time_ref = now;
+		replay.gyro_integral_dt = sensors.gyro_integral_dt[0];
+		replay.accelerometer_integral_dt = sensors.accelerometer_integral_dt[0];
+		replay.magnetometer_timestamp = sensors.magnetometer_timestamp[0];
+		replay.baro_timestamp = sensors.baro_timestamp[0];
+		memcpy(&replay.gyro_integral_rad[0], &sensors.gyro_integral_rad[0], sizeof(replay.gyro_integral_rad));
+		memcpy(&replay.accelerometer_integral_m_s[0], &sensors.accelerometer_integral_m_s[0], sizeof(replay.accelerometer_integral_m_s));
+		memcpy(&replay.magnetometer_ga[0], &sensors.magnetometer_ga[0], sizeof(replay.magnetometer_ga));
+		replay.baro_alt_meter = sensors.baro_alt_meter[0];
+		replay.time_usec = gps.timestamp_position;
+		replay.time_usec_vel = gps.timestamp_velocity;
+		replay.lat = gps.lat;
+		replay.lon = gps.lon;
+		replay.alt = gps.alt;
+		replay.fix_type = gps.fix_type;
+		replay.eph = gps.eph;
+		replay.epv = gps.epv;
+		replay.vel_m_s = gps.vel_m_s;
+		replay.vel_n_m_s = gps.vel_n_m_s;
+		replay.vel_e_m_s = gps.vel_e_m_s;
+		replay.vel_d_m_s = gps.vel_d_m_s;
+		replay.vel_ned_valid = gps.vel_ned_valid;
+
+		if (_replay_pub == nullptr) {
+			_replay_pub = orb_advertise(ORB_ID(ekf2_replay), &replay);
+
+		} else {
+			orb_publish(ORB_ID(ekf2_replay), _replay_pub, &replay);
+		}
 	}
 
 	delete ekf2::instance;

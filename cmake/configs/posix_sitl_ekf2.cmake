@@ -36,6 +36,7 @@ set(config_module_list
 	modules/attitude_estimator_q
 	modules/ekf_att_pos_estimator
 	modules/ekf2
+	modules/ekf2_replay
 	modules/position_estimator_inav
 	modules/navigator
 	modules/vtol_att_control
