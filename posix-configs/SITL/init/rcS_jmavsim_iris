@@ -1,2 +1,2 @@
 uorb start
-ekf2_replay start hello
+ekf2_replay start /home/roman/Desktop/replay.px4log

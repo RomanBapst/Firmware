@@ -219,15 +219,15 @@ Ekf2Replay::~Ekf2Replay()
 
 void Ekf2Replay::publishSensorData()
 {
-	if (_sensors_pub == nullptr) {
+	if (_sensors_pub == nullptr && _read_part1) {
 		_sensors_pub = orb_advertise(ORB_ID(sensor_combined), &_sensors);
-	} else {
+	} else if (_sensors_pub != nullptr && _read_part1) {
 		orb_publish(ORB_ID(sensor_combined), _sensors_pub, &_sensors);
 	}
 
-	if (_gps_pub == nullptr) {
+	if (_gps_pub == nullptr && _gps.timestamp_position > 0) {
 		_gps_pub = orb_advertise(ORB_ID(vehicle_gps_position), &_gps);
-	} else {
+	} else if (_gps_pub != nullptr && _gps.timestamp_position > 0) {
 		orb_publish(ORB_ID(vehicle_gps_position), _gps_pub, &_gps);
 	}
 }
@@ -271,7 +271,6 @@ void Ekf2Replay::parseMessage(uint8_t *data, uint8_t type)
 		
 		uint8_t *dest_ptr = (uint8_t *)&replay_part1.time_ref;
 		readData(data, dest_ptr, type);
-
 		_sensors.timestamp = replay_part1.time_ref;
 		_sensors.gyro_integral_dt[0] = replay_part1.gyro_integral_dt;
 		_sensors.accelerometer_integral_dt[0] = replay_part1.accelerometer_integral_dt;
@@ -293,7 +292,6 @@ void Ekf2Replay::parseMessage(uint8_t *data, uint8_t type)
 	} else if (type == LOG_RPL2_MSG) {
 		uint8_t *dest_ptr = (uint8_t *)&replay_part2.time_pos_usec;
 		readData(data, dest_ptr, type);
-
 		_gps.timestamp_position = replay_part2.time_pos_usec;
 		_gps.timestamp_velocity = replay_part2.time_vel_usec;
 		_gps.lat = replay_part2.lat;
@@ -360,9 +358,10 @@ void Ekf2Replay::task_main()
 				
 				parseMessage(&data[0], header[2]);
 
-				if (_read_part1 && _read_part2) {
+				if (_read_part1 || _read_part2) {
 					publishSensorData();
 					_read_part1 = _read_part2 = true;
+					usleep(20000);
 				}
 			}
 		} while (!reached_end);

@@ -1,2 +1,5 @@
 uorb start
-ekf2_replay start /home/roman/Downloads/test_log.px4log
+sleep 2
+ekf2 start
+sleep 1
+ekf2_replay start /home/roman/Desktop/replay.px4log
