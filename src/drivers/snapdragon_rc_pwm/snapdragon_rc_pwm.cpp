@@ -55,6 +55,10 @@
 #include <uORB/topics/actuator_controls_0.h>
 #include <v1.0/mavlink_types.h>
 #include <v1.0/common/mavlink.h>
+
+
+
+
 #include <drivers/drv_hrt.h>
 
 
@@ -108,7 +112,7 @@ void task_main(int argc, char *argv[]);
 
 void task_main(int argc, char *argv[])
 {
-	char serial_buf[512];
+	char serial_buf[700];
 	mavlink_status_t serial_status = {};
 	_rc_sub = orb_subscribe(ORB_ID(input_rc));
 	initialise_uart();
@@ -138,12 +142,11 @@ void task_main(int argc, char *argv[])
 		}
 
 		if (fds[0].revents & POLLIN) {
-
+			usleep(20000);
 			int len = ::read(_uart_fd, serial_buf, sizeof(serial_buf));
 
 			if (len > 0) {
 				mavlink_message_t msg;
-
 				for (int i = 0; i < len; ++i) {
 					if (mavlink_parse_char(MAVLINK_COMM_1, serial_buf[i], &msg, &serial_status)) {
 						// have a message, handle it
@@ -329,7 +332,7 @@ void start()
 	_task_handle = px4_task_spawn_cmd("snapdragon_rc_pwm_main",
 					  SCHED_DEFAULT,
 					  SCHED_PRIORITY_MAX,
-					  1500,
+					  2000,
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
