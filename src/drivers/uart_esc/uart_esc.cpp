@@ -83,7 +83,7 @@ static const char *MIXER_FILENAME = "/dev/fs/quad_x.main.mix";
 
 // publications
 orb_advert_t        	_outputs_pub;
-orb_advert_t 			_rc_pub;
+orb_advert_t 			_rc_pub = nullptr;
 
 // topic structures
 actuator_controls_s     _controls;
@@ -104,6 +104,8 @@ void stop();
 void send_controls_mavlink();
 
 void serial_callback(void *context, char *buffer, size_t num_bytes);
+
+void handle_message(mavlink_message_t *rc_message);
 
 /** task main trampoline function */
 void	task_main_trampoline(int argc, char *argv[]);
@@ -376,7 +378,7 @@ void serial_callback(void *context, char *buffer, size_t num_bytes)
 				// have a message, handle it
 				if (msg.msgid == MAVLINK_MSG_ID_RC_CHANNELS) {
 					// we should publish but would be great if this works
-					PX4_ERR("got rc message!");
+					handle_message(&msg);
 				}
 			}
 		}
@@ -384,6 +386,40 @@ void serial_callback(void *context, char *buffer, size_t num_bytes)
 	} else {
 		
 		PX4_ERR("error: read callback with no data in the buffer");
+	}
+}
+
+void handle_message(mavlink_message_t *rc_message)
+{
+	mavlink_rc_channels_t rc;
+	mavlink_msg_rc_channels_decode(rc_message, &rc);
+	_rc.timestamp_publication = hrt_absolute_time();
+	_rc.timestamp_last_signal = hrt_absolute_time();
+	_rc.channel_count = 8;
+	_rc.rc_lost = false;
+	_rc.values[0] = rc.chan1_raw;
+	_rc.values[1] = rc.chan2_raw;
+	_rc.values[2] = rc.chan3_raw;
+	_rc.values[3] = rc.chan4_raw;
+	_rc.values[4] = rc.chan5_raw;
+	_rc.values[5] = rc.chan6_raw;
+	_rc.values[6] = rc.chan7_raw;
+	_rc.values[7] = rc.chan8_raw;
+	_rc.values[8] = rc.chan9_raw;
+	_rc.values[9] = rc.chan10_raw;
+	_rc.values[10] = rc.chan11_raw;
+	_rc.values[11] = rc.chan12_raw;
+	_rc.values[12] = rc.chan13_raw;
+	_rc.values[13] = rc.chan14_raw;
+	_rc.values[14] = rc.chan15_raw;
+	_rc.values[15] = rc.chan16_raw;
+	_rc.values[16] = rc.chan17_raw;
+	_rc.values[17] = rc.chan18_raw;
+
+	if (_rc_pub != nullptr) {
+		orb_publish(ORB_ID(input_rc), _rc_pub, &_rc);
+	} else {
+		_rc_pub = orb_advertise(ORB_ID(input_rc), &_rc);
 	}
 }
 
@@ -419,6 +455,7 @@ void task_main(int argc, char *argv[])
 			_task_should_exit = true;
 		}
 
+		_rc_pub = orb_advertise(ORB_ID(input_rc), &_rc);
 
 		// Main loop
 		while (!_task_should_exit) {
