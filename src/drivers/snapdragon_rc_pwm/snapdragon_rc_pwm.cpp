@@ -78,11 +78,9 @@ static int _uart_fd = -1;
 static bool _flow_control_enabled = false;
 int _rc_sub = -1;
 
-orb_advert_t	_outputs_pub = nullptr;
 orb_advert_t 	_actuator_controls_pub = nullptr;
 
 struct input_rc_s _rc = {};
-struct actuator_outputs_s _outputs = {};
 struct actuator_controls_s _actuators;
 
 /** Print out the usage information */
@@ -114,13 +112,14 @@ void task_main(int argc, char *argv[])
 {
 	char serial_buf[700];
 	mavlink_status_t serial_status = {};
+
 	_rc_sub = orb_subscribe(ORB_ID(input_rc));
+
+
 	initialise_uart();
 
-	_actuators.control[3] = 0.7f;
-
+	// we wait for uart actuator controls messages from snapdragon
 	px4_pollfd_struct_t fds[1];
-
 	fds[0].fd = _uart_fd;
 	fds[0].events = POLLIN;
 
@@ -155,6 +154,7 @@ void task_main(int argc, char *argv[])
 				}
 			}
 
+			// check if we have new rc data, if yes send it to snapdragon
 			bool rc_updated = false;
 			orb_check(_rc_sub, &rc_updated);
 			
@@ -162,12 +162,6 @@ void task_main(int argc, char *argv[])
 				orb_copy(ORB_ID(input_rc), _rc_sub, &_rc);
 				// send mavlink message
 				send_rc_mavlink();
-			}
-
-			if (_actuator_controls_pub == nullptr) {
-				_actuator_controls_pub = orb_advertise(ORB_ID(actuator_controls_0), &_actuators);
-			} else {
-				orb_publish(ORB_ID(actuator_controls_0), _actuator_controls_pub, &_actuators);
 			}
 		}
 	}
@@ -184,7 +178,15 @@ void handle_message(mavlink_message_t *msg)
 		_actuators.control[1] = actuator_controls.controls[1];
 		_actuators.control[2] = actuator_controls.controls[2];
 		_actuators.control[3] = actuator_controls.controls[3];
-		_actuators.timestamp = actuator_controls.time_usec;
+		_actuators.timestamp = hrt_absolute_time();
+
+		// publish actuator controls received from snapdragon
+		if (_actuator_controls_pub == nullptr) {
+			_actuator_controls_pub = orb_advertise(ORB_ID(actuator_controls_0), &_actuators);
+		} else {
+			orb_publish(ORB_ID(actuator_controls_0), _actuator_controls_pub, &_actuators);
+		}
+
 	}
 }
 

@@ -324,10 +324,14 @@ void handleRC(int uart_fd, struct input_rc_s *rc)
 	}
 }
 
+// send actuator controls message to Pixhawk
 void send_controls_mavlink()
 {
 	mavlink_actuator_control_target_t controls_message;
-	memcpy(&controls_message.controls[0], &_controls.control[0], 4*sizeof(float));
+	controls_message.controls[0] = _controls.control[0];
+	controls_message.controls[1] = _controls.control[1];
+	controls_message.controls[2] = _controls.control[2];
+	controls_message.controls[3] = _controls.control[3];
 	controls_message.time_usec = _controls.timestamp;
 
 	const uint8_t msgid = MAVLINK_MSG_ID_ACTUATOR_CONTROL_TARGET;
@@ -365,10 +369,10 @@ void send_controls_mavlink()
 	}
 }
 
+// callback function for the uart
 void multi_port_read_callback(void *context, char *buffer, size_t num_bytes)
 {
-	//int rx_dev_id = (int)context;
-	char rx_buffer[1024];
+	char rx_buffer[128];
 	mavlink_status_t serial_status = {};
 	if (num_bytes > 0) {
 		memcpy(rx_buffer, buffer, num_bytes);
@@ -377,9 +381,9 @@ void multi_port_read_callback(void *context, char *buffer, size_t num_bytes)
 		for (int i = 0; i < num_bytes; ++i) {
 			if (mavlink_parse_char(MAVLINK_COMM_1, rx_buffer[i], &msg, &serial_status)) {
 				// have a message, handle it
-				PX4_ERR("parsing %.5f", (double)msg.msgid);
 				if (msg.msgid == MAVLINK_MSG_ID_RC_CHANNELS) {
-					PX4_ERR("got it");
+					// we should publish but would be great if this works
+					PX4_ERR("got rc message!");
 				}
 			}
 		}
@@ -422,10 +426,9 @@ void task_main(int argc, char *argv[])
 			_task_should_exit = true;
 		}
 
+		// setup uart callback
 		struct dspal_serial_ioctl_receive_data_callback receive_callback;
 		receive_callback.rx_data_callback_func_ptr = multi_port_read_callback;
-
-		receive_callback.context = (void *)(1);
 
 		int result = ioctl(_fd,
 				       SERIAL_IOCTL_SET_RECEIVE_DATA_CALLBACK,
@@ -459,6 +462,8 @@ void task_main(int argc, char *argv[])
 
 				send_controls_mavlink();
 
+				// this is needed otherwise the uart internal states will flood. Probably
+				// we need to make update rate faster
 				usleep(10000);
 
 				/*if (_outputs_pub != nullptr) {
