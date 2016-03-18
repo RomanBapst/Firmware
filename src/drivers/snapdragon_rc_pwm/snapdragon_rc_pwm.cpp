@@ -262,7 +262,7 @@ int initialise_uart()
 	}
 
 	// set baud rate
-	int speed = B57600;
+	int speed = B115200;
 	struct termios uart_config;
 	tcgetattr(_uart_fd, &uart_config);
 	// clear ONLCR flag (which appends a CR for every LF)

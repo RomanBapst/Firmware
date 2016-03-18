@@ -103,7 +103,7 @@ void stop();
 
 void send_controls_mavlink();
 
-void multi_port_read_callback(void *context, char *buffer, size_t num_bytes);
+void serial_callback(void *context, char *buffer, size_t num_bytes);
 
 /** task main trampoline function */
 void	task_main_trampoline(int argc, char *argv[]);
@@ -285,21 +285,17 @@ int uart_initialize(const char *device, int baud)
 		return -1;
 	}
 
-	struct dspal_serial_open_options options;
+	struct dspal_serial_ioctl_data_rate rate;
 
-	options.bit_rate = DSPAL_SIO_BITRATE_57600;
+	rate.bit_rate = DSPAL_SIO_BITRATE_115200;
 
-	options.tx_flow = DSPAL_SIO_FCTL_OFF;
+	int ret = ioctl(fd, SERIAL_IOCTL_SET_DATA_RATE, (void *)&rate);
 
-	options.rx_flow = DSPAL_SIO_FCTL_OFF;
+	struct dspal_serial_ioctl_receive_data_callback callback;
 
-	options.rx_data_callback = nullptr;
+	callback.rx_data_callback_func_ptr = serial_callback;
 
-	options.tx_data_callback = nullptr;
-
-	options.is_tx_data_synchronous = false;
-
-	int ret = ::ioctl(fd, SERIAL_IOCTL_OPEN_OPTIONS, (void *)&options);
+	ret = ioctl(fd, SERIAL_IOCTL_SET_RECEIVE_DATA_CALLBACK, (void *)&callback);
 
 	if (ret != 0) {
 		PX4_ERR("Failed to setup UART flow control options");
@@ -370,16 +366,13 @@ void send_controls_mavlink()
 }
 
 // callback function for the uart
-void multi_port_read_callback(void *context, char *buffer, size_t num_bytes)
+void serial_callback(void *context, char *buffer, size_t num_bytes)
 {
-	char rx_buffer[128];
 	mavlink_status_t serial_status = {};
 	if (num_bytes > 0) {
-		memcpy(rx_buffer, buffer, num_bytes);
-		rx_buffer[num_bytes] = 0;
 		mavlink_message_t msg;
 		for (int i = 0; i < num_bytes; ++i) {
-			if (mavlink_parse_char(MAVLINK_COMM_1, rx_buffer[i], &msg, &serial_status)) {
+			if (mavlink_parse_char(MAVLINK_COMM_1, buffer[i], &msg, &serial_status)) {
 				// have a message, handle it
 				if (msg.msgid == MAVLINK_MSG_ID_RC_CHANNELS) {
 					// we should publish but would be great if this works
@@ -426,17 +419,6 @@ void task_main(int argc, char *argv[])
 			_task_should_exit = true;
 		}
 
-		// setup uart callback
-		struct dspal_serial_ioctl_receive_data_callback receive_callback;
-		receive_callback.rx_data_callback_func_ptr = multi_port_read_callback;
-
-		int result = ioctl(_fd,
-				       SERIAL_IOCTL_SET_RECEIVE_DATA_CALLBACK,
-				       (void *)&receive_callback);
-
-		if (result < 0) {
-			PX4_ERR("failed to set callback!");
-		}
 
 		// Main loop
 		while (!_task_should_exit) {
