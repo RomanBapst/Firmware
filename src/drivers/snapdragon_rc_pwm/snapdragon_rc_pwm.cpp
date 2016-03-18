@@ -83,11 +83,8 @@ orb_advert_t 	_actuator_controls_pub = nullptr;
 struct input_rc_s _rc = {};
 struct actuator_controls_s _actuators;
 
-/** Print out the usage information */
+// Print out the usage information
 void usage();
-
-/** uart_esc start */
-void start(const char *device);
 
 void start();
 
@@ -110,7 +107,7 @@ void task_main(int argc, char *argv[]);
 
 void task_main(int argc, char *argv[])
 {
-	char serial_buf[700];
+	char serial_buf[128];
 	mavlink_status_t serial_status = {};
 
 	_rc_sub = orb_subscribe(ORB_ID(input_rc));
@@ -123,7 +120,7 @@ void task_main(int argc, char *argv[])
 	fds[0].fd = _uart_fd;
 	fds[0].events = POLLIN;
 
-	while(true) {
+	while (true) {
 
 		// wait for up to 100ms for data
 		int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
@@ -146,6 +143,7 @@ void task_main(int argc, char *argv[])
 
 			if (len > 0) {
 				mavlink_message_t msg;
+
 				for (int i = 0; i < len; ++i) {
 					if (mavlink_parse_char(MAVLINK_COMM_1, serial_buf[i], &msg, &serial_status)) {
 						// have a message, handle it
@@ -157,7 +155,7 @@ void task_main(int argc, char *argv[])
 			// check if we have new rc data, if yes send it to snapdragon
 			bool rc_updated = false;
 			orb_check(_rc_sub, &rc_updated);
-			
+
 			if (rc_updated) {
 				orb_copy(ORB_ID(input_rc), _rc_sub, &_rc);
 				// send mavlink message
@@ -183,6 +181,7 @@ void handle_message(mavlink_message_t *msg)
 		// publish actuator controls received from snapdragon
 		if (_actuator_controls_pub == nullptr) {
 			_actuator_controls_pub = orb_advertise(ORB_ID(actuator_controls_0), &_actuators);
+
 		} else {
 			orb_publish(ORB_ID(actuator_controls_0), _actuator_controls_pub, &_actuators);
 		}
@@ -283,16 +282,16 @@ int initialise_uart()
 
 	(void)tcgetattr(_uart_fd, &uart_config);
 #ifdef CRTS_IFLOW
-		uart_config.c_cflag |= CRTS_IFLOW;
+	uart_config.c_cflag |= CRTS_IFLOW;
 #else
-		uart_config.c_cflag |= CRTSCTS;
+	uart_config.c_cflag |= CRTSCTS;
 #endif
-		(void)tcsetattr(_uart_fd, TCSANOW, &uart_config);
+	(void)tcsetattr(_uart_fd, TCSANOW, &uart_config);
 
-		/* setup output flow control */
-		if (enable_flow_control(true)) {
-			PX4_WARN("hardware flow control not supported");
-		}
+	/* setup output flow control */
+	if (enable_flow_control(true)) {
+		PX4_WARN("hardware flow control not supported");
+	}
 
 	return _uart_fd;
 }

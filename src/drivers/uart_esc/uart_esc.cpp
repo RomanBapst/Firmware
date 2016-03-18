@@ -307,21 +307,6 @@ int uart_initialize(const char *device, int baud)
 	return 0;
 }
 
-void handleRC(int uart_fd, struct input_rc_s *rc)
-{
-	// read uart until we get the magic number
-	char buf[10];
-
-	while (true) {
-		int ret = ::read(uart_fd, &buf, sizeof(buf));
-		PX4_ERR("got %d", ret);
-
-		if (ret < 1) {
-			break;
-		}
-	}
-}
-
 // send actuator controls message to Pixhawk
 void send_controls_mavlink()
 {
@@ -371,8 +356,10 @@ void send_controls_mavlink()
 void serial_callback(void *context, char *buffer, size_t num_bytes)
 {
 	mavlink_status_t serial_status = {};
+
 	if (num_bytes > 0) {
 		mavlink_message_t msg;
+
 		for (int i = 0; i < num_bytes; ++i) {
 			if (mavlink_parse_char(MAVLINK_COMM_1, buffer[i], &msg, &serial_status)) {
 				// have a message, handle it
@@ -384,7 +371,7 @@ void serial_callback(void *context, char *buffer, size_t num_bytes)
 		}
 
 	} else {
-		
+
 		PX4_ERR("error: read callback with no data in the buffer");
 	}
 }
@@ -418,6 +405,7 @@ void handle_message(mavlink_message_t *rc_message)
 
 	if (_rc_pub != nullptr) {
 		orb_publish(ORB_ID(input_rc), _rc_pub, &_rc);
+
 	} else {
 		_rc_pub = orb_advertise(ORB_ID(input_rc), &_rc);
 	}
