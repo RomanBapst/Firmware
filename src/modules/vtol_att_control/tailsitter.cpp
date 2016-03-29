@@ -468,7 +468,9 @@ void Tailsitter::fill_actuator_outputs()
 	case FIXED_WING:
 		// in fixed wing mode we use engines only for providing thrust, no moments are generated
 		_actuators_out_0->timestamp = _actuators_fw_in->timestamp;
-		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = 0;
+
+		// XXX Boxwing: We want to use multicopter roll to control fw yaw axis
+		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = -_actuators_fw_in->control[actuator_controls_s::INDEX_YAW];
 		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = 0;
 		_actuators_out_0->control[actuator_controls_s::INDEX_YAW] = 0;
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
