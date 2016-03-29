@@ -1105,7 +1105,10 @@ FixedwingAttitudeControl::task_main()
 					/* Update input data for rate controllers */
 					control_input.roll_rate_setpoint = _roll_ctrl.get_desired_rate();
 					control_input.pitch_rate_setpoint = _pitch_ctrl.get_desired_rate();
-					control_input.yaw_rate_setpoint = _yaw_ctrl.get_desired_rate();
+
+					// XXX Boxwing: Marco wants to have yaw rate control
+					//control_input.yaw_rate_setpoint = _yaw_ctrl.get_desired_rate();
+					control_input.yaw_rate_setpoint = yaw_manual;
 
 					/* Run attitude RATE controllers which need the desired attitudes from above, add trim */
 					float roll_u = _roll_ctrl.control_bodyrate(control_input);
@@ -1155,8 +1158,9 @@ FixedwingAttitudeControl::task_main()
 
 					_actuators.control[2] = (PX4_ISFINITE(yaw_u)) ? yaw_u + _parameters.trim_yaw : _parameters.trim_yaw;
 
+					// XXX Boxwing: Don't need this as we are directly controlling rates
 					/* add in manual rudder control */
-					_actuators.control[2] += yaw_manual;
+					//_actuators.control[2] += yaw_manual;
 
 					if (!PX4_ISFINITE(yaw_u)) {
 						_yaw_ctrl.reset_integrator();
