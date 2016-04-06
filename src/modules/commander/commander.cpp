@@ -3055,7 +3055,7 @@ set_main_state_rc(struct vehicle_status_s *status_local, struct manual_control_s
 			 * for any non-manual mode
 			 */
 			// XXX: put ACRO and STAB on separate switches
-			if (status.is_rotary_wing && !status.is_vtol) {
+			if (status.is_rotary_wing) {
 				res = main_state_transition(status_local,vehicle_status_s::MAIN_STATE_ACRO);
 			} else if (!status.is_rotary_wing) {
 				res = main_state_transition(status_local,vehicle_status_s::MAIN_STATE_STAB);
