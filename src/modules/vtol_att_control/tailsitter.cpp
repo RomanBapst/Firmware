@@ -458,7 +458,7 @@ void Tailsitter::fill_actuator_outputs()
 		} else {
 			// NOTE: There is no mistake in the line below, multicopter yaw axis is controlled by elevon roll actuation!
 			_actuators_out_1->control[actuator_controls_s::INDEX_ROLL] =
-				_actuators_mc_in->control[actuator_controls_s::INDEX_YAW];	//roll elevon
+				_actuators_mc_in->control[actuator_controls_s::INDEX_YAW] * _params->mc_airspeed_min;	//roll elevon
 
 				// XXX Boxwing: We don't need to control pitch with elevons
 			_actuators_out_1->control[actuator_controls_s::INDEX_PITCH] = 0.0f;
