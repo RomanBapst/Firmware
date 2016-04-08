@@ -6,11 +6,12 @@ namespace px4
 {
 namespace logger
 {
-
+	static pthread_attr_t thr_attr;
+	static pthread_t thr;
 LogWriter::LogWriter(uint8_t *buffer, size_t buffer_size) :
 	_buffer(buffer),
 	_buffer_size(buffer_size),
-	_min_write_chunk(4096)
+	_min_write_chunk(20480)
 {
 	pthread_mutex_init(&_mtx, nullptr);
 	pthread_cond_init(&_cv, nullptr);
@@ -34,11 +35,13 @@ void LogWriter::stop_log()
 {
 	_should_run = false;
 	notify();
+	usleep(50000);
+	pthread_attr_destroy(&thr_attr);
+	thr = 0;
 }
 
 pthread_t LogWriter::thread_start()
 {
-	pthread_attr_t thr_attr;
 	pthread_attr_init(&thr_attr);
 
 	sched_param param;
@@ -48,7 +51,6 @@ pthread_t LogWriter::thread_start()
 
 	pthread_attr_setstacksize(&thr_attr, 1024);
 
-	pthread_t thr;
 
 	if (0 != pthread_create(&thr, &thr_attr, &LogWriter::run_helper, this)) {
 		warnx("error creating logwriter thread");
@@ -129,6 +131,15 @@ void LogWriter::run()
 			if (available > 0) {
 				perf_begin(perf_write);
 				written = ::write(_fd, read_ptr, available);
+
+				static int counter = 0;
+				static float avg = 0;
+				avg = 0.9f * avg + 0.1f * written;
+	if (counter % 400 == 0) {
+		warnx("written %.5f", (double)avg);
+		counter = 0;
+	}
+	counter++;
 				perf_end(perf_write);
 
 				/* call fsync periodically to minimize potential loss of data */
@@ -175,6 +186,7 @@ void LogWriter::run()
 
 bool LogWriter::write(void *ptr, size_t size)
 {
+
 	// Bytes available to write
 	size_t available = _buffer_size - _count;
 
