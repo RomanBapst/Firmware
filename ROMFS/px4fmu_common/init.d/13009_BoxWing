@@ -10,8 +10,10 @@
 sh /etc/init.d/rc.vtol_defaults
 
 set MIXER boxwing
+set MIXER_AUX boxwing_yaw
 set PWM_OUT 1234
 set PWM_RATE 400
+set PWM_AUX_DISARMED 1000
 
 set MAV_TYPE 20
 
