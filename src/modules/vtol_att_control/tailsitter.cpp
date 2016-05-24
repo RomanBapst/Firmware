@@ -472,8 +472,8 @@ void Tailsitter::fill_actuator_outputs()
 		_actuators_out_0->timestamp = _actuators_fw_in->timestamp;
 
 		// XXX Boxwing: We want to use multicopter roll to control fw yaw axis
-		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = -_actuators_fw_in->control[actuator_controls_s::INDEX_YAW];
-		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = 0;
+		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = 0;
+		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = _actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] + _params->fw_pitch_trim;
 		_actuators_out_0->control[actuator_controls_s::INDEX_YAW] = 0;
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE];
