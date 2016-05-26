@@ -465,6 +465,8 @@ void Tailsitter::fill_actuator_outputs()
 				//_actuators_mc_in->control[actuator_controls_s::INDEX_PITCH];	//pitch elevon
 		}
 
+		_actuators_out_1->control[actuator_controls_s::INDEX_YAW] = 0.0f;
+
 		break;
 
 	case FIXED_WING:
@@ -473,7 +475,7 @@ void Tailsitter::fill_actuator_outputs()
 
 		// XXX Boxwing: We want to use multicopter roll to control fw yaw axis
 		_actuators_out_0->control[actuator_controls_s::INDEX_ROLL] = 0;
-		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = _actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] + _params->fw_pitch_trim;
+		_actuators_out_0->control[actuator_controls_s::INDEX_PITCH] = (_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] + _params->fw_pitch_trim) * _params->mc_airspeed_max;
 		_actuators_out_0->control[actuator_controls_s::INDEX_YAW] = 0;
 		_actuators_out_0->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE];
@@ -483,7 +485,7 @@ void Tailsitter::fill_actuator_outputs()
 		_actuators_out_1->control[actuator_controls_s::INDEX_PITCH] =
 			_actuators_fw_in->control[actuator_controls_s::INDEX_PITCH] + _params->fw_pitch_trim;	// pitch elevon
 		_actuators_out_1->control[actuator_controls_s::INDEX_YAW] =
-			_actuators_fw_in->control[actuator_controls_s::INDEX_YAW];	// yaw
+			_manual_control_sp->r;	// yaw
 		_actuators_out_1->control[actuator_controls_s::INDEX_THROTTLE] =
 			_actuators_fw_in->control[actuator_controls_s::INDEX_THROTTLE];	// throttle
 		break;
