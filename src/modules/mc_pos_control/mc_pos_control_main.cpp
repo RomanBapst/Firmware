@@ -1897,6 +1897,11 @@ MulticopterPositionControl::task_main()
 							q_sp.from_dcm(R);
 							memcpy(&_att_sp.q_d[0], &q_sp.data[0], sizeof(_att_sp.q_d));
 							_reset_pos_sp = true;
+							_vel_sp(0) = _vel(0);
+							_vel_sp(1) = _vel(1);
+							_vel_sp_prev(0) = _vel(0);
+							_vel_sp_prev(1) = _vel(1);
+
 						}
 
 					} else if (!_control_mode.flag_control_manual_enabled) {
