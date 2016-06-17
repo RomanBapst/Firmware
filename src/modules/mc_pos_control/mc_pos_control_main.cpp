@@ -246,6 +246,9 @@ private:
 	bool _run_pos_control;
 	bool _run_alt_control;
 
+	bool _was_fw;
+	hrt_abstime _decceleration_start;
+
 	math::Vector<3> _pos;
 	math::Vector<3> _pos_sp;
 	math::Vector<3> _vel;
@@ -389,6 +392,8 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_alt_hold_engaged(false),
 	_run_pos_control(true),
 	_run_alt_control(true),
+	_was_fw(false),
+	_decceleration_start(0),
 	_yaw(0.0f),
 	_in_landing(false),
 	_lnd_reached_ground(false),
@@ -1251,6 +1256,12 @@ MulticopterPositionControl::task_main()
 		// set dt for control blocks
 		setDt(dt);
 
+		if (_vehicle_status.is_rotary_wing && _was_fw && !_control_mode.flag_control_manual_enabled) {
+			_decceleration_start = hrt_absolute_time();
+		}
+
+		_was_fw = !_vehicle_status.is_rotary_wing;
+
 		if (_control_mode.flag_armed && !was_armed) {
 			/* reset setpoints and integrals on arming */
 			_reset_pos_sp = true;
@@ -1876,6 +1887,17 @@ MulticopterPositionControl::task_main()
 						_att_sp.roll_body = euler(0);
 						_att_sp.pitch_body = euler(1);
 						/* yaw already used to construct rot matrix, but actual rotation matrix can have different yaw near singularity */
+
+						float ground_speed = sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1));
+						if (hrt_absolute_time() - _decceleration_start < 7*1000*1000 && ground_speed > 1.0f) {
+							_att_sp.roll_body = _manual.y * _params.man_roll_max;
+							_att_sp.pitch_body = -_manual.x * _params.man_pitch_max;
+							R.from_euler(_att_sp.roll_body, _att_sp.pitch_body, _att_sp.yaw_body);
+							memcpy(&_att_sp.R_body[0], R.data, sizeof(_att_sp.R_body));
+							q_sp.from_dcm(R);
+							memcpy(&_att_sp.q_d[0], &q_sp.data[0], sizeof(_att_sp.q_d));
+							_reset_pos_sp = true;
+						}
 
 					} else if (!_control_mode.flag_control_manual_enabled) {
 						/* autonomous altitude control without position control (failsafe landing),
