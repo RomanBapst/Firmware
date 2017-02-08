@@ -140,6 +140,11 @@ struct Parameters {
 
 	float vibration_warning_threshold;
 
+	float wind_p_noise;
+	float tas_scale_p_noise;
+	float tas_noise;
+	float beta_noise;
+
 };
 
 struct ParameterHandles {
@@ -217,6 +222,11 @@ struct ParameterHandles {
 	param_t baro_qnh;
 
 	param_t vibe_thresh; /**< vibration threshold */
+
+	param_t wind_p_noise;
+	param_t tas_scale_p_noise;
+	param_t tas_noise;
+	param_t beta_noise;
 
 };
 
