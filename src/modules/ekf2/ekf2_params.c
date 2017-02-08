@@ -895,13 +895,3 @@ PARAM_DEFINE_FLOAT(EKF2_ABIAS_INIT, 0.2f);
  * @decimal 3
  */
 PARAM_DEFINE_FLOAT(EKF2_ANGERR_INIT, 0.1f);
-
-/**
- * True airspeed scale process noise.
- *
- * @group EKF2
- * @min 0
- * @max
- * @decimal 1
- */
-PARAM_DEFINE_FLOAT(WEST_TAS_P_NOISE, 0.00001f);
