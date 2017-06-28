@@ -47,12 +47,13 @@
 #include <uORB/topics/distance_sensor.h>
 
 #define ULANDING_MIN_DISTANCE		0.315f
-#define ULANDING_MAX_DISTANCE		50.0f
+#define ULANDING_MAX_DISTANCE		45.0f
 #define RADAR_RANGE_DATA 		0x48
 
 #define RADAR_DEFAULT_PORT		"/dev/ttyS2"	// telem2 on Pixhawk
-#define BUF_LEN 		9
-#define SENS_VARIANCE 		0.045f * 0.045f		// assume standard deviation to be equal to sensor resolution. Static bench tests have shown that
+#define BUF_LEN 		18
+#define RADAR_RESOLUTION 	0.025f / 3.0f 	// resolution in m
+#define SENS_VARIANCE 		RADAR_RESOLUTION * RADAR_RESOLUTION	// assume standard deviation to be equal to sensor resolution. Static bench tests have shown that
 // the sensor ouput does not vary if the unit is not moved.
 
 extern "C" __EXPORT int ulanding_radar_main(int argc, char *argv[]);
@@ -79,11 +80,18 @@ private:
 	unsigned 	_tail;
 	uint8_t 	_buf[BUF_LEN];
 
+	struct {
+		uint8_t HEADER_BYTE = 0xFE;
+		uint8_t PACKET_LEN = 6;
+	} _protocol_info;
+
+	uint8_t _sensor_id = 0;
+
 	static void task_main_trampoline(int argc, char *argv[]);
 	void task_main();
 
 	bool read_and_parse(uint8_t *buf, int len, float *range);
-	bool is_header_byte(uint8_t c) {return ((c & 0x80) == 0x00 && (c & 0x7F) == RADAR_RANGE_DATA);};
+	bool is_header_byte(uint8_t c, uint8_t header);
 };
 
 namespace radar
@@ -222,7 +230,7 @@ Radar::init()
 		ds_report.timestamp = hrt_absolute_time();
 		ds_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_RADAR;
 		ds_report.orientation = 8;
-		ds_report.id = 0;
+		ds_report.id = _sensor_id;
 		ds_report.current_distance = -1.0f;	// make evident that this range sample is invalid
 		ds_report.covariance = SENS_VARIANCE;
 
@@ -267,6 +275,16 @@ Radar::start()
 	return OK;
 }
 
+bool Radar::is_header_byte(uint8_t c, uint8_t header)
+{
+	if (_protocol_info.PACKET_LEN == 3) {
+		return ((c & 0x80) == 0x00 && (c & 0x7F) == RADAR_RANGE_DATA);
+
+	} else {
+		return (c == header);
+	}
+}
+
 bool Radar::read_and_parse(uint8_t *buf, int len, float *range)
 {
 	bool ret = false;
@@ -290,30 +308,61 @@ bool Radar::read_and_parse(uint8_t *buf, int len, float *range)
 	// check how many bytes are in the buffer, return if it's lower than the size of one package
 	int num_bytes = _head >= _tail ? (_head - _tail + 1) : (_head + 1 + BUF_LEN - _tail);
 
-	if (num_bytes < 3) {
+	if (num_bytes < _protocol_info.PACKET_LEN) {
 		return false;
 	}
 
 	int index = _head;
 	uint8_t no_header_counter = 0;	// counter for bytes which are non header bytes
-	uint8_t byte1 = _buf[_head];
-	uint8_t byte2 = _buf[_head];
 
 	// go through the buffer backwards starting from the newest byte
 	// if we find a header byte and the previous two bytes weren't header bytes
 	// then we found the newest package.
 	for (unsigned i = 0; i < num_bytes; i++) {
-		if (is_header_byte(_buf[index])) {
-			if (no_header_counter >= 2) {
-				int raw = (byte1 & 0x7F);
-				raw += ((byte2 & 0x7F) << 7);
+		if (is_header_byte(_buf[index], _protocol_info.HEADER_BYTE)) {
+			if (no_header_counter >= _protocol_info.PACKET_LEN - 1) {
 
-				*range = ((float)raw) * 0.045f;
+				if (_protocol_info.PACKET_LEN == 3) {
+					uint8_t index1 = (index + 1) % BUF_LEN;
+					uint8_t index2 = (index + 2) % BUF_LEN;
+
+					int raw = (_buf[index1] & 0x7F);
+					raw += ((_buf[index2] & 0x7F) << 7);
+					*range = ((float)raw) * RADAR_RESOLUTION;
+					ret = true;
+
+				} else {
+					int checksum = 0;
+					// get ID
+					uint8_t index_current = (index + 1) % BUF_LEN;
+					_sensor_id = _buf[index_current];
+					checksum += _sensor_id;
+
+					// get altitude data
+					index_current = (index + 2) % BUF_LEN;
+					uint16_t raw = _buf[index_current];
+					checksum += _buf[index_current];
+					index_current = (index + 3) % BUF_LEN;
+					raw += (_buf[index_current] << 8);
+					checksum += _buf[index_current];
+					*range = ((float)raw) * RADAR_RESOLUTION;
+
+					// SNR
+					index_current = (index + 4) % BUF_LEN;
+					uint8_t SNR = _buf[index_current];
+					checksum += SNR;
+
+					// checksum
+					index_current = (index + 5) % BUF_LEN;
+
+					if ((checksum & 0xFF) == _buf[index_current]) {
+						ret = true;
+					}
+				}
 
 				// set the tail to one after the index because we neglect
 				// any data before the one we just read
-				_tail = index == BUF_LEN - 1 ? 0 : index++;
-				ret = true;
+				_tail = (index == BUF_LEN - 1 ? 0 : index++);
 				break;
 
 			}
@@ -323,9 +372,6 @@ bool Radar::read_and_parse(uint8_t *buf, int len, float *range)
 		} else {
 			no_header_counter++;
 		}
-
-		byte2 = byte1;
-		byte1 = _buf[index];
 
 		index--;
 
@@ -393,7 +439,7 @@ Radar::task_main()
 				report.max_distance = ULANDING_MAX_DISTANCE;
 				report.covariance = SENS_VARIANCE;
 				report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_RADAR;
-				report.id = 0;
+				report.id = _sensor_id;
 
 				// publish it
 				orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
