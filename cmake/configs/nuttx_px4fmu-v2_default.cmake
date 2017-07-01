@@ -72,7 +72,7 @@ set(config_module_list
 	systemcmds/reboot
 	#systemcmds/sd_bench
 	systemcmds/top
-	#systemcmds/topic_listener
+	systemcmds/topic_listener
 	systemcmds/ver
 
 	#
@@ -99,7 +99,7 @@ set(config_module_list
 	modules/gpio_led
 	#modules/uavcan
 	modules/land_detector
-	modules/camera_feedback
+	#modules/camera_feedback
 
 	#
 	# Estimation modules
@@ -118,13 +118,13 @@ set(config_module_list
 	modules/gnd_pos_control
 	modules/mc_att_control
 	modules/mc_pos_control
-	modules/vtol_att_control
+	#modules/vtol_att_control
 
 	#
 	# Logging
 	#
 	modules/logger
-	modules/sdlog2
+	#modules/sdlog2
 
 	#
 	# Library modules

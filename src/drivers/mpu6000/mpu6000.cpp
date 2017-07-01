@@ -92,6 +92,7 @@
 #include <drivers/drv_gyro.h>
 #include <mathlib/math/filter/LowPassFilter2p.hpp>
 #include <lib/conversion/rotation.h>
+#include <uORB/topics/high_rate_imu.h>
 
 #include "mpu6000.h"
 
@@ -191,6 +192,7 @@ private:
 	orb_advert_t		_accel_topic;
 	int			_accel_orb_class_instance;
 	int			_accel_class_instance;
+	orb_advert_t 		_high_rate_imu_pub;
 
 	ringbuffer::RingBuffer	*_gyro_reports;
 
@@ -223,6 +225,8 @@ private:
 	Integrator		_gyro_int;
 
 	enum Rotation		_rotation;
+
+	struct high_rate_imu_s hrate_imu = {};
 
 	// this is used to support runtime checking of key
 	// configuration registers to detect SPI bus errors and sensor
@@ -496,6 +500,7 @@ MPU6000::MPU6000(device::Device *interface, const char *path_accel, const char *
 	_accel_topic(nullptr),
 	_accel_orb_class_instance(-1),
 	_accel_class_instance(-1),
+	_high_rate_imu_pub(nullptr),
 	_gyro_reports(nullptr),
 	_gyro_scale{},
 	_gyro_range_scale(0.0f),
@@ -713,6 +718,10 @@ MPU6000::init()
 	if (_accel_topic == nullptr) {
 		warnx("ADVERT FAIL");
 	}
+
+	hrate_imu.ref_timestamp = hrt_absolute_time();
+	hrate_imu.timestamp = hrt_absolute_time();
+	_high_rate_imu_pub = orb_advertise(ORB_ID(high_rate_imu), &hrate_imu);
 
 
 	/* advertise sensor topic, measure manually to initialize valid report */
@@ -2084,6 +2093,18 @@ MPU6000::measure()
 	_accel_reports->force(&arb);
 	_gyro_reports->force(&grb);
 
+	hrate_imu.ref_timestamp = hrt_absolute_time();
+	hrate_imu.timestamp = hrt_absolute_time();
+	hrate_imu.gyro_x = x_gyro_in_new;
+	hrate_imu.gyro_y = y_gyro_in_new;
+	hrate_imu.gyro_z = z_gyro_in_new;
+
+	hrate_imu.accel_x = x_in_new;
+	hrate_imu.accel_y = y_in_new;
+	hrate_imu.accel_z = z_in_new;
+
+	orb_publish(ORB_ID(high_rate_imu), _high_rate_imu_pub, &hrate_imu);
+
 	/* notify anyone waiting for data */
 	if (accel_notify) {
 		poll_notify(POLLIN);
@@ -2107,6 +2128,8 @@ MPU6000::measure()
 
 	/* stop measuring */
 	perf_end(_sample_perf);
+
+
 	return OK;
 }
 

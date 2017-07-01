@@ -261,7 +261,7 @@ void Logger::print_statistics()
 
 void Logger::run_trampoline(int argc, char *argv[])
 {
-	uint32_t log_interval = 3500;
+	uint32_t log_interval = 600;
 	int log_buffer_size = 12 * 1024;
 	bool log_on_start = false;
 	bool log_until_shutdown = false;
@@ -607,6 +607,7 @@ void Logger::add_default_topics()
 	add_topic("vehicle_gps_position");
 	add_topic("vehicle_land_detected");
 	add_topic("vehicle_status");
+	add_topic("high_rate_imu");
 }
 
 void Logger::add_calibration_topics()
