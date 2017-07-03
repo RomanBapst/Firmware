@@ -940,6 +940,8 @@ MPU6000::_set_dlpf_filter(uint16_t frequency_hz)
 {
 	uint8_t filter;
 
+	frequency_hz = 0;
+
 	/*
 	   choose next highest filter frequency available
 	 */
