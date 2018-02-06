@@ -33,11 +33,8 @@ set(config_module_list
 	drivers/lsm303d
 	#drivers/mb12xx
 	#drivers/mkblctrl
-	drivers/mpu6000
-	drivers/mpu9250
-	drivers/ms4525_airspeed
-	drivers/ms5525_airspeed
-	drivers/ms5611
+	drivers/imu/mpu6000
+	#drivers/imu/mpu9250
 	#drivers/oreoled
 	#drivers/protocol_splitter
 	drivers/pwm_input

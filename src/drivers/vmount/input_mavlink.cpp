@@ -172,7 +172,6 @@ void InputMavlinkROI::print_status()
 	PX4_INFO("Input: Mavlink (ROI)");
 }
 
-
 InputMavlinkCmdMount::InputMavlinkCmdMount(bool stabilize)
 	: _stabilize {stabilize, stabilize, stabilize}
 {
@@ -216,120 +215,153 @@ int InputMavlinkCmdMount::update_impl(unsigned int timeout_ms, ControlData **con
 	polls[0].fd = 		_vehicle_command_sub;
 	polls[0].events = 	POLLIN;
 
-	int ret = px4_poll(polls, num_poll, timeout_ms);
+	int poll_timeout = (int)timeout_ms;
 
-	if (ret < 0) {
-		return -errno;
-	}
+	bool exit_loop = false;
 
-	if (ret == 0) {
-		// Timeout control_data already null.
+	while (!exit_loop && poll_timeout >= 0) {
+		hrt_abstime poll_start = hrt_absolute_time();
 
-	} else {
-		if (polls[0].revents & POLLIN) {
-			vehicle_command_s vehicle_command;
-			orb_copy(ORB_ID(vehicle_command), _vehicle_command_sub, &vehicle_command);
+		int ret = px4_poll(polls, num_poll, poll_timeout);
 
-			// process only if the command is for us
-			if (vehicle_command.target_system != _mav_sys_id || vehicle_command.target_component != _mav_comp_id) {
-				return 0;
-			}
-
-			for (int i = 0; i < 3; ++i) {
-				_control_data.stabilize_axis[i] = _stabilize[i];
-			}
-
-			_control_data.gimbal_shutter_retract = false;
-
-			if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONTROL) {
-
-				switch ((int)vehicle_command.param7) {
-				case vehicle_command_s::VEHICLE_MOUNT_MODE_RETRACT:
-					_control_data.gimbal_shutter_retract = true;
-
-				/* FALLTHROUGH */
-
-				case vehicle_command_s::VEHICLE_MOUNT_MODE_NEUTRAL:
-					_control_data.type = ControlData::Type::Neutral;
-
-					*control_data = &_control_data;
-					break;
-
-				case vehicle_command_s::VEHICLE_MOUNT_MODE_MAVLINK_TARGETING:
-					_control_data.type = ControlData::Type::Angle;
-					_control_data.type_data.angle.is_speed[0] = false;
-					_control_data.type_data.angle.is_speed[1] = false;
-					_control_data.type_data.angle.is_speed[2] = false;
-					// vmount spec has roll on channel 0, MAVLink spec has pitch on channel 0
-					_control_data.type_data.angle.angles[0] = vehicle_command.param2 * M_DEG_TO_RAD_F;
-					// vmount spec has pitch on channel 1, MAVLink spec has roll on channel 1
-					_control_data.type_data.angle.angles[1] = vehicle_command.param1 * M_DEG_TO_RAD_F;
-					// both specs have yaw on channel 2
-					_control_data.type_data.angle.angles[2] = vehicle_command.param3 * M_DEG_TO_RAD_F;
-
-					// We expect angle of [-pi..+pi]. If the input range is [0..2pi] we can fix that.
-					if (_control_data.type_data.angle.angles[2] > M_PI_F) {
-						_control_data.type_data.angle.angles[2] -= 2 * M_PI_F;
-					}
-
-					*control_data = &_control_data;
-					break;
-
-				case vehicle_command_s::VEHICLE_MOUNT_MODE_RC_TARGETING:
-					break;
-
-				case vehicle_command_s::VEHICLE_MOUNT_MODE_GPS_POINT:
-					control_data_set_lon_lat((double)vehicle_command.param2, (double)vehicle_command.param1, vehicle_command.param3);
-
-					*control_data = &_control_data;
-					break;
-				}
-
-				_ack_vehicle_command(&vehicle_command);
-
-			} else if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONFIGURE) {
-				_stabilize[0] = (uint8_t) vehicle_command.param2 == 1;
-				_stabilize[1] = (uint8_t) vehicle_command.param3 == 1;
-				_stabilize[2] = (uint8_t) vehicle_command.param4 == 1;
-				_control_data.type = ControlData::Type::Neutral; //always switch to neutral position
-
-				*control_data = &_control_data;
-				_ack_vehicle_command(&vehicle_command);
-			}
+		if (ret < 0) {
+			return -errno;
 		}
 
-	}
+		poll_timeout -= (hrt_absolute_time() - poll_start) / 1000;
 
-	return 0;
-}
+		// if we get a command that we need to handle, we exit the loop, otherwise we poll until we reach the timeout
+		exit_loop = true;
 
-void InputMavlinkCmdMount::_ack_vehicle_command(vehicle_command_s *cmd)
-{
-	vehicle_command_ack_s vehicle_command_ack = {
-		.timestamp = hrt_absolute_time(),
-		.result_param2 = 0,
-		.command = cmd->command,
-		.result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED,
-		.from_external = false,
-		.result_param1 = 0,
-		.target_system = cmd->source_system,
-		.target_component = cmd->source_component
-	};
+		if (ret == 0) {
+			// Timeout control_data already null.
 
-	if (_vehicle_command_ack_pub == nullptr) {
-		_vehicle_command_ack_pub = orb_advertise_queue(ORB_ID(vehicle_command_ack), &vehicle_command_ack,
-					   vehicle_command_ack_s::ORB_QUEUE_LENGTH);
+		} else {
+			if (polls[0].revents & POLLIN) {
+				vehicle_command_s vehicle_command;
+				orb_copy(ORB_ID(vehicle_command), _vehicle_command_sub, &vehicle_command);
 
-	} else {
-		orb_publish(ORB_ID(vehicle_command_ack), _vehicle_command_ack_pub, &vehicle_command_ack);
-	}
+				//PX4_WARN("cmd: %d", vehicle_command.command);
+				//PX4_WARN("param1: %d", (int)vehicle_command.param1);
+				//PX4_WARN("param7: %d", (int)vehicle_command.param7);
 
-}
+				// Process only if the command is for us or for anyone (component id 0).
+				const bool sysid_correct = (vehicle_command.target_system == _mav_sys_id);
+				const bool compid_correct = ((vehicle_command.target_component == _mav_comp_id) ||
+							     (vehicle_command.target_component == 0));
 
-void InputMavlinkCmdMount::print_status()
-{
-	PX4_INFO("Input: Mavlink (CMD_MOUNT)");
-}
+				if (!sysid_correct || !compid_correct) {
+					PX4_WARN("sys id or compid incorrect");
+					exit_loop = false;
+					continue;
+				}
+
+				if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONTROL) {
+
+					switch ((int)vehicle_command.param7) {
+					case vehicle_command_s::VEHICLE_MOUNT_MODE_RETRACT:
+						PX4_WARN("MOUNT_CONTROL: retract");
+						_control_data.gimbal_shutter_retract = true;
+
+						*control_data = &_control_data;
+						break;
+
+					case vehicle_command_s::VEHICLE_MOUNT_MODE_NEUTRAL:
+						PX4_WARN("MOUNT_CONTROL: deploy (neutral)");
+						_control_data.type = ControlData::Type::Neutral;
+						_control_data.gimbal_shutter_retract = false;
+
+					case vehicle_command_s::VEHICLE_MOUNT_MODE_MAVLINK_TARGETING: {
+							_control_data.type = ControlData::Type::Angle;
+
+							// mavlink spec MAV_CMD_DO_MOUNT_CONTROL
+							// param1: pitch (tilt)
+							// param2: roll
+							// param3: yaw (pan)
+
+							const float roll = vehicle_command.param2 * M_DEG_TO_RAD_F;
+							const float pitch = vehicle_command.param1 * M_DEG_TO_RAD_F;
+							const float yaw = vehicle_command.param3 * M_DEG_TO_RAD_F;
+
+							if (PX4_ISFINITE(roll) && PX4_ISFINITE(pitch) && PX4_ISFINITE(yaw)) {
+								_control_data.type_data.angle.angles[0] = roll;
+								_control_data.type_data.angle.angles[1] = pitch;
+								_control_data.type_data.angle.angles[2] = yaw;
+							}
+
+							// We expect angle of [-pi..+pi]. If the input range is [0..2pi] we can fix that.
+							if (_control_data.type_data.angle.angles[2] > M_PI_F) {
+								_control_data.type_data.angle.angles[2] -= 2 * M_PI_F;
+							}
+
+							//PX4_INFO("pan: %.3f tilt: %.3f", (double)vehicle_command.param3, (double)vehicle_command.param1);
+
+							*control_data = &_control_data;
+						}
+						break;
+
+					} else if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONFIGURE) {
 
 
-} /* namespace vmount */
+						switch ((int)vehicle_command.param1) {
+						case vehicle_command_s::VEHICLE_MOUNT_MODE_RETRACT:
+							PX4_WARN("MOUNT_CONFIGURE: retract");
+							_control_data.gimbal_shutter_retract = true;
+
+							*control_data = &_control_data;
+							break;
+
+						case vehicle_command_s::VEHICLE_MOUNT_MODE_NEUTRAL:
+							PX4_WARN("MOUNT_CONFIGURE: deploy");
+							_control_data.type = ControlData::Type::Neutral;
+							_control_data.gimbal_shutter_retract = false;
+
+							*control_data = &_control_data;
+							break;
+						}
+
+						_stabilize[0] = (uint8_t) vehicle_command.param2 == 1;
+						_stabilize[1] = (uint8_t) vehicle_command.param3 == 1;
+						_stabilize[2] = (uint8_t) vehicle_command.param4 == 1;
+
+						_control_data.type_data.angle.is_speed[0] = (uint8_t) vehicle_command.param5 == 1;
+						_control_data.type_data.angle.is_speed[1] = (uint8_t) vehicle_command.param6 == 1;
+						_control_data.type_data.angle.is_speed[2] = (uint8_t) vehicle_command.param7 == 1;
+
+						_ack_vehicle_command(&vehicle_command);
+					}
+				}
+
+			}
+
+			return 0;
+		}
+
+		void InputMavlinkCmdMount::_ack_vehicle_command(vehicle_command_s * cmd) {
+			vehicle_command_ack_s vehicle_command_ack = {
+				.timestamp = hrt_absolute_time(),
+				.result_param2 = 0,
+				.command = cmd->command,
+				.result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED,
+				.from_external = false,
+				.result_param1 = 0,
+				.target_system = cmd->source_system,
+				.target_component = cmd->source_component
+			};
+
+			if (_vehicle_command_ack_pub == nullptr) {
+				_vehicle_command_ack_pub = orb_advertise_queue(ORB_ID(vehicle_command_ack), &vehicle_command_ack,
+							   vehicle_command_ack_s::ORB_QUEUE_LENGTH);
+
+			} else {
+				orb_publish(ORB_ID(vehicle_command_ack), _vehicle_command_ack_pub, &vehicle_command_ack);
+			}
+
+		}
+
+		void InputMavlinkCmdMount::print_status() {
+			PX4_INFO("Input: Mavlink (CMD_MOUNT)");
+		}
+
+
+	} /* namespace vmount */
