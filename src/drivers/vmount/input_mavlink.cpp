@@ -294,81 +294,96 @@ int InputMavlinkCmdMount::update_impl(unsigned int timeout_ms, ControlData **con
 						}
 						break;
 
-					} else if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONFIGURE) {
+					case vehicle_command_s::VEHICLE_MOUNT_MODE_RC_TARGETING:
+						break;
 
-
-						switch ((int)vehicle_command.param1) {
-						case vehicle_command_s::VEHICLE_MOUNT_MODE_RETRACT:
-							PX4_WARN("MOUNT_CONFIGURE: retract");
-							_control_data.gimbal_shutter_retract = true;
-
-							*control_data = &_control_data;
-							break;
-
-						case vehicle_command_s::VEHICLE_MOUNT_MODE_NEUTRAL:
-							PX4_WARN("MOUNT_CONFIGURE: deploy");
-							_control_data.type = ControlData::Type::Neutral;
-							_control_data.gimbal_shutter_retract = false;
-
-							*control_data = &_control_data;
-							break;
-						}
-
-						_stabilize[0] = (uint8_t) vehicle_command.param2 == 1;
-						_stabilize[1] = (uint8_t) vehicle_command.param3 == 1;
-						_stabilize[2] = (uint8_t) vehicle_command.param4 == 1;
-
-						_control_data.type_data.angle.is_speed[0] = (uint8_t) vehicle_command.param5 == 1;
-						_control_data.type_data.angle.is_speed[1] = (uint8_t) vehicle_command.param6 == 1;
-						_control_data.type_data.angle.is_speed[2] = (uint8_t) vehicle_command.param7 == 1;
+					case vehicle_command_s::VEHICLE_MOUNT_MODE_GPS_POINT:
+						control_data_set_lon_lat((double)vehicle_command.param2, (double)vehicle_command.param1, vehicle_command.param3);
 
 						*control_data = &_control_data;
-						_ack_vehicle_command(&vehicle_command);
-
-					} else if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_DO_DIGICAM_CONTROL) {
-						// find a better home for this
-
-						float zoom = (int)vehicle_command.param2;
-
-						_control_data.zoom = zoom;
-
-						_ack_vehicle_command(&vehicle_command);
-
-					} else {
-						exit_loop = false;
+						break;
 					}
+
+					_ack_vehicle_command(&vehicle_command);
+
+				} else if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_DO_MOUNT_CONFIGURE) {
+
+
+					switch ((int)vehicle_command.param1) {
+					case vehicle_command_s::VEHICLE_MOUNT_MODE_RETRACT:
+						PX4_WARN("MOUNT_CONFIGURE: retract");
+						_control_data.gimbal_shutter_retract = true;
+
+						*control_data = &_control_data;
+						break;
+
+					case vehicle_command_s::VEHICLE_MOUNT_MODE_NEUTRAL:
+						PX4_WARN("MOUNT_CONFIGURE: deploy");
+						_control_data.type = ControlData::Type::Neutral;
+						_control_data.gimbal_shutter_retract = false;
+
+						*control_data = &_control_data;
+						break;
+					}
+
+					_stabilize[0] = (uint8_t) vehicle_command.param2 == 1;
+					_stabilize[1] = (uint8_t) vehicle_command.param3 == 1;
+					_stabilize[2] = (uint8_t) vehicle_command.param4 == 1;
+
+					_control_data.type_data.angle.is_speed[0] = (uint8_t) vehicle_command.param5 == 1;
+					_control_data.type_data.angle.is_speed[1] = (uint8_t) vehicle_command.param6 == 1;
+					_control_data.type_data.angle.is_speed[2] = (uint8_t) vehicle_command.param7 == 1;
+
+					*control_data = &_control_data;
+					_ack_vehicle_command(&vehicle_command);
+
+				} else if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_DO_DIGICAM_CONTROL) {
+					// find a better home for this
+
+					float zoom = (int)vehicle_command.param2;
+
+					_control_data.zoom = zoom;
+
+					_ack_vehicle_command(&vehicle_command);
+
+				} else {
+					exit_loop = false;
 				}
-
-			}
-
-			return 0;
-		}
-
-		void InputMavlinkCmdMount::_ack_vehicle_command(vehicle_command_s * cmd) {
-			vehicle_command_ack_s vehicle_command_ack = {
-				.timestamp = hrt_absolute_time(),
-				.result_param2 = 0,
-				.command = cmd->command,
-				.result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED,
-				.from_external = false,
-				.result_param1 = 0,
-				.target_system = cmd->source_system,
-				.target_component = cmd->source_component
-			};
-
-			if (_vehicle_command_ack_pub == nullptr) {
-				_vehicle_command_ack_pub = orb_advertise_queue(ORB_ID(vehicle_command_ack), &vehicle_command_ack,
-							   vehicle_command_ack_s::ORB_QUEUE_LENGTH);
-
-			} else {
-				orb_publish(ORB_ID(vehicle_command_ack), _vehicle_command_ack_pub, &vehicle_command_ack);
 			}
 
 		}
+	}
 
-		void InputMavlinkCmdMount::print_status() {
-			PX4_INFO("Input: Mavlink (CMD_MOUNT)");
-		}
+	return 0;
+}
+
+void InputMavlinkCmdMount::_ack_vehicle_command(vehicle_command_s *cmd)
+{
+	vehicle_command_ack_s vehicle_command_ack = {
+		.timestamp = hrt_absolute_time(),
+		.result_param2 = 0,
+		.command = cmd->command,
+		.result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED,
+		.from_external = false,
+		.result_param1 = 0,
+		.target_system = cmd->source_system,
+		.target_component = cmd->source_component
+	};
+
+	if (_vehicle_command_ack_pub == nullptr) {
+		_vehicle_command_ack_pub = orb_advertise_queue(ORB_ID(vehicle_command_ack), &vehicle_command_ack,
+					   vehicle_command_ack_s::ORB_QUEUE_LENGTH);
+
+	} else {
+		orb_publish(ORB_ID(vehicle_command_ack), _vehicle_command_ack_pub, &vehicle_command_ack);
+	}
+
+}
+
+void InputMavlinkCmdMount::print_status()
+{
+	PX4_INFO("Input: Mavlink (CMD_MOUNT)");
+}
 
 
-	} /* namespace vmount */
+} /* namespace vmount */
