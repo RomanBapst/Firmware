@@ -800,6 +800,7 @@ then
 			param set MAV_TYPE ${MAV_TYPE}
 		fi
 
+
 		# Load mixer and configure outputs
 		sh /etc/init.d/rc.interface
 
@@ -970,3 +971,7 @@ unset TUNE_ERR
 
 # Boot is complete, inform MAVLink app(s) that the system is now fully up and running
 mavlink boot_complete
+
+tap_esc start -d /dev/ttyS2 -n 4
+usleep 100000
+mixer load /dev/tap_esc /etc/mixers/quad_+.main.mix

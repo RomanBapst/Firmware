@@ -267,10 +267,13 @@ TAP_ESC::init()
 	/* Asign the id's to the ESCs to match the mux */
 
 	for (uint8_t phy_chan_index = 0; phy_chan_index < _channels_count; phy_chan_index++) {
-		config.channelMapTable[phy_chan_index] = device_mux_map[phy_chan_index] &
-				ESC_CHANNEL_MAP_CHANNEL;
-		config.channelMapTable[phy_chan_index] |= (device_dir_map[phy_chan_index] << 4) &
-				ESC_CHANNEL_MAP_RUNNING_DIRECTION;
+		if (false) {
+			config.channelMapTable[phy_chan_index] = device_mux_map[phy_chan_index] & ESC_CHANNEL_MAP_CHANNEL;
+			config.channelMapTable[phy_chan_index] |= (device_dir_map[phy_chan_index] << 4) & ESC_CHANNEL_MAP_RUNNING_DIRECTION;
+
+		} else {
+			config.channelMapTable[phy_chan_index] = phy_chan_index;
+		}
 	}
 
 	config.maxChannelValue = RPMMAX;
@@ -282,7 +285,6 @@ TAP_ESC::init()
 		return ret;
 	}
 
-#if !BOARD_TAP_ESC_NO_VERIFY_CONFIG
 
 	/* Verify All ESC got the config */
 
@@ -318,18 +320,15 @@ TAP_ESC::init()
 			} else {
 
 				/* Give it time to come in */
-
 				usleep(1000);
 			}
 		}
 
 		if (!valid) {
-			return -EIO;
 		}
 
 	}
 
-#endif
 
 	/* To Unlock the ESC from the Power up state we need to issue 10
 	 * ESCBUS_MSG_ID_RUN request with all the values 0;
@@ -440,6 +439,10 @@ void TAP_ESC::send_esc_outputs(const uint16_t *pwm, const unsigned num_pwm)
 
 		} else if (rpm[i] < RPMSTOPPED) {
 			rpm[i] = RPMSTOPPED;
+		}
+
+		if (i == 0) {
+			rpm[i] |= RUN_REVERSE_MASK;
 		}
 	}
 
@@ -658,6 +661,7 @@ TAP_ESC::cycle()
 
 			/* do mixing */
 			num_outputs = _mixers->mix(&_outputs.output[0], num_outputs);
+
 			_outputs.noutputs = num_outputs;
 			_outputs.timestamp = hrt_absolute_time();
 
@@ -722,11 +726,13 @@ TAP_ESC::cycle()
 
 		}
 
-		const unsigned esc_count = num_outputs;
+		const unsigned esc_count = 4;
 		uint16_t motor_out[TAP_ESC_MAX_MOTOR_NUM];
 
 		// We need to remap from the system default to what PX4's normal
 		// scheme is
+		num_outputs = 4;
+
 		if (num_outputs == 6) {
 			motor_out[0] = (uint16_t)_outputs.output[3];
 			motor_out[1] = (uint16_t)_outputs.output[0];
@@ -738,10 +744,14 @@ TAP_ESC::cycle()
 			motor_out[7] = RPMSTOPPED;
 
 		} else if (num_outputs == 4) {
-			motor_out[0] = (uint16_t)_outputs.output[2];
-			motor_out[2] = (uint16_t)_outputs.output[0];
+			motor_out[0] = (uint16_t)_outputs.output[0];
+			motor_out[2] = (uint16_t)_outputs.output[1];
 			motor_out[1] = (uint16_t)_outputs.output[1];
-			motor_out[3] = (uint16_t)_outputs.output[3];
+			motor_out[3] = (uint16_t)_outputs.output[0];
+
+		} else if (num_outputs == 2) {
+			motor_out[0] = (uint16_t)_outputs.output[0];
+			motor_out[1] = (uint16_t)_outputs.output[1];
 
 		} else {
 			// Use the system defaults
@@ -756,6 +766,8 @@ TAP_ESC::cycle()
 		if (parse_tap_esc_feedback(&uartbuf, &_packet) == true) {
 			if (_packet.msg_id == ESCBUS_MSG_ID_RUN_INFO) {
 				RunInfoRepsonse &feed_back_data = _packet.d.rspRunInfo;
+
+				//printf("esc %d rpm %d \n", feed_back_data.channelID, feed_back_data.speed);
 
 				if (feed_back_data.channelID < esc_status_s::CONNECTED_ESC_MAX) {
 					_esc_feedback.esc[feed_back_data.channelID].esc_rpm = feed_back_data.speed;
@@ -831,7 +843,8 @@ void TAP_ESC::work_stop()
 	_initialized = false;
 }
 
-int TAP_ESC::control_callback_trampoline(uintptr_t handle, uint8_t control_group, uint8_t control_index, float &input)
+int TAP_ESC::control_callback_trampoline(uintptr_t handle, uint8_t control_group, uint8_t control_index,
+		float &input)
 {
 	TAP_ESC *obj = (TAP_ESC *)handle;
 	return obj->control_callback(control_group, control_index, input);

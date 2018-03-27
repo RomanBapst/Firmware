@@ -42,5 +42,6 @@ then
 fi
 
 set MIXER caipirinha_vtol
+set MIXER_AUX vtol_delta
 
 set PWM_OUT 1234
