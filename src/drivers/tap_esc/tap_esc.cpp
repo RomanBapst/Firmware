@@ -259,10 +259,13 @@ TAP_ESC::init()
 	/* Asign the id's to the ESCs to match the mux */
 
 	for (uint8_t phy_chan_index = 0; phy_chan_index < _channels_count; phy_chan_index++) {
-		config.channelMapTable[phy_chan_index] = device_mux_map[phy_chan_index] &
-				ESC_CHANNEL_MAP_CHANNEL;
-		config.channelMapTable[phy_chan_index] |= (device_dir_map[phy_chan_index] << 4) &
-				ESC_CHANNEL_MAP_RUNNING_DIRECTION;
+		if (reverse_channel_bitmaks == 0) {
+			config.channelMapTable[phy_chan_index] = device_mux_map[phy_chan_index] & ESC_CHANNEL_MAP_CHANNEL;
+			config.channelMapTable[phy_chan_index] |= (device_dir_map[phy_chan_index] << 4) & ESC_CHANNEL_MAP_RUNNING_DIRECTION;
+
+		} else {
+			config.channelMapTable[phy_chan_index] = phy_chan_index;
+		}
 	}
 
 	config.maxChannelValue = RPMMAX;
@@ -274,7 +277,6 @@ TAP_ESC::init()
 		return ret;
 	}
 
-#if !BOARD_TAP_ESC_NO_VERIFY_CONFIG
 
 	/* Verify All ESC got the config */
 
@@ -310,18 +312,15 @@ TAP_ESC::init()
 			} else {
 
 				/* Give it time to come in */
-
 				usleep(1000);
 			}
 		}
 
 		if (!valid) {
-			return -EIO;
 		}
 
 	}
 
-#endif
 
 	/* To Unlock the ESC from the Power up state we need to issue 10
 	 * ESCBUS_MSG_ID_RUN request with all the values 0;
@@ -432,6 +431,10 @@ void TAP_ESC::send_esc_outputs(const uint16_t *pwm, const unsigned num_pwm)
 
 		} else if (rpm[i] < RPMSTOPPED) {
 			rpm[i] = RPMSTOPPED;
+		}
+
+		if (reverse_channel_bitmaks & (1 << i)) {
+			rpm[i] |= RUN_REVERSE_MASK;
 		}
 	}
 
@@ -646,6 +649,7 @@ TAP_ESC::cycle()
 
 			/* do mixing */
 			num_outputs = _mixers->mix(&_outputs.output[0], num_outputs);
+
 			_outputs.noutputs = num_outputs;
 			_outputs.timestamp = hrt_absolute_time();
 
@@ -710,11 +714,12 @@ TAP_ESC::cycle()
 
 		}
 
-		const unsigned esc_count = num_outputs;
+		const unsigned esc_count = 4;
 		uint16_t motor_out[TAP_ESC_MAX_MOTOR_NUM];
 
 		// We need to remap from the system default to what PX4's normal
 		// scheme is
+
 		if (num_outputs == 6) {
 			motor_out[0] = (uint16_t)_outputs.output[3];
 			motor_out[1] = (uint16_t)_outputs.output[0];
@@ -724,474 +729,489 @@ TAP_ESC::cycle()
 			motor_out[5] = (uint16_t)_outputs.output[5];
 			motor_out[6] = RPMSTOPPED;
 			motor_out[7] = RPMSTOPPED;
+			else if (num_outputs == 4) {
+				motor_out[0] = (uint16_t)_outputs.output[2];
+				motor_out[2] = (uint16_t)_outputs.output[0];
+				motor_out[1] = (uint16_t)_outputs.output[1];
+				motor_out[3] = (uint16_t)_outputs.output[3];
 
-		} else if (num_outputs == 4) {
-			motor_out[0] = (uint16_t)_outputs.output[2];
-			motor_out[2] = (uint16_t)_outputs.output[0];
-			motor_out[1] = (uint16_t)_outputs.output[1];
-			motor_out[3] = (uint16_t)_outputs.output[3];
-
-		} else {
-			// Use the system defaults
-			for (unsigned i = 0; i < esc_count; ++i) {
-				motor_out[i] = (uint16_t)_outputs.output[i];
-			}
-		}
-
-		send_esc_outputs(motor_out, esc_count);
-		read_data_from_uart();
-
-		if (parse_tap_esc_feedback(&uartbuf, &_packet) == true) {
-			if (_packet.msg_id == ESCBUS_MSG_ID_RUN_INFO) {
-				RunInfoRepsonse &feed_back_data = _packet.d.rspRunInfo;
-
-				if (feed_back_data.channelID < esc_status_s::CONNECTED_ESC_MAX) {
-					_esc_feedback.esc[feed_back_data.channelID].esc_rpm = feed_back_data.speed;
-//					_esc_feedback.esc[feed_back_data.channelID].esc_voltage = feed_back_data.voltage;
-					_esc_feedback.esc[feed_back_data.channelID].esc_state = feed_back_data.ESCStatus;
-					_esc_feedback.esc[feed_back_data.channelID].esc_vendor = esc_status_s::ESC_VENDOR_TAP;
-					// printf("vol is %d\n",feed_back_data.voltage );
-					// printf("speed is %d\n",feed_back_data.speed );
-
-					_esc_feedback.esc_connectiontype = esc_status_s::ESC_CONNECTION_TYPE_SERIAL;
-					_esc_feedback.counter++;
-					_esc_feedback.esc_count = esc_count;
-
-					_esc_feedback.timestamp = hrt_absolute_time();
-
-					orb_publish(ORB_ID(esc_status), _esc_feedback_pub, &_esc_feedback);
-				}
-			}
-		}
-
-		/* and publish for anyone that cares to see */
-		orb_publish(ORB_ID(actuator_outputs), _outputs_pub, &_outputs);
-
-	}
-
-	bool updated;
-
-	orb_check(_armed_sub, &updated);
-
-	if (updated) {
-		orb_copy(ORB_ID(actuator_armed), _armed_sub, &_armed);
-
-		if (_is_armed != _armed.armed) {
-			/* reset all outputs */
-			for (size_t i = 0; i < sizeof(_outputs.output) / sizeof(_outputs.output[0]); i++) {
-				_outputs.output[i] = NAN;
-			}
-		}
-
-		_is_armed = _armed.armed;
-
-	}
-
-
-}
-
-void TAP_ESC::work_stop()
-{
-	for (unsigned i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS; i++) {
-		if (_control_subs[i] >= 0) {
-			orb_unsubscribe(_control_subs[i]);
-			_control_subs[i] = -1;
-		}
-	}
-
-	orb_unsubscribe(_armed_sub);
-	_armed_sub = -1;
-	orb_unsubscribe(_test_motor_sub);
-	_test_motor_sub = -1;
-
-	DEVICE_LOG("stopping");
-	_initialized = false;
-}
-
-int TAP_ESC::control_callback_trampoline(uintptr_t handle, uint8_t control_group, uint8_t control_index, float &input)
-{
-	TAP_ESC *obj = (TAP_ESC *)handle;
-	return obj->control_callback(control_group, control_index, input);
-}
-
-int TAP_ESC::control_callback(uint8_t control_group, uint8_t control_index, float &input)
-{
-	input = _controls[control_group].control[control_index];
-
-	/* limit control input */
-	if (input > 1.0f) {
-		input = 1.0f;
-
-	} else if (input < -1.0f) {
-		input = -1.0f;
-	}
-
-	/* motor spinup phase - lock throttle to zero */
-	// if (_pwm_limit.state == PWM_LIMIT_STATE_RAMP) {
-	// 	if ((control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE ||
-	// 	     control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE_ALTERNATE) &&
-	// 	    control_index == actuator_controls_s::INDEX_THROTTLE) {
-	// 		/* limit the throttle output to zero during motor spinup,
-	// 		 * as the motors cannot follow any demand yet
-	// 		 */
-	// 		input = 0.0f;
-	// 	}
-	// }
-
-	/* throttle not arming - mark throttle input as invalid */
-	if (_armed.prearmed && !_armed.armed) {
-		if ((control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE ||
-		     control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE_ALTERNATE) &&
-		    control_index == actuator_controls_s::INDEX_THROTTLE) {
-			/* set the throttle to an invalid value */
-			input = NAN_VALUE;
-		}
-	}
-
-	return 0;
-}
-
-int
-TAP_ESC::ioctl(device::file_t *filp, int cmd, unsigned long arg)
-{
-	int ret = OK;
-
-	switch (cmd) {
-
-	case MIXERIOCRESET:
-		if (_mixers != nullptr) {
-			delete _mixers;
-			_mixers = nullptr;
-			_groups_required = 0;
-		}
-
-		break;
-
-	case MIXERIOCLOADBUF: {
-			const char *buf = (const char *)arg;
-			unsigned buflen = strlen(buf);
-
-			if (_mixers == nullptr) {
-				_mixers = new MixerGroup(control_callback_trampoline, (uintptr_t)this);
-			}
-
-			if (_mixers == nullptr) {
-				_groups_required = 0;
-				ret = -ENOMEM;
+			} else if (num_outputs == 2) {
+				motor_out[0] = (uint16_t)_outputs.output[0];
+				motor_out[1] = (uint16_t)_outputs.output[1];
 
 			} else {
+				// Use the system defaults
+				for (unsigned i = 0; i < esc_count; ++i) {
+					motor_out[i] = (uint16_t)_outputs.output[i];
+				}
+			}
 
-				ret = _mixers->load_from_buf(buf, buflen);
+			send_esc_outputs(motor_out, esc_count);
+			read_data_from_uart();
 
-				if (ret != 0) {
-					DEVICE_DEBUG("mixer load failed with %d", ret);
-					delete _mixers;
-					_mixers = nullptr;
+			if (parse_tap_esc_feedback(&uartbuf, &_packet) == true) {
+				if (_packet.msg_id == ESCBUS_MSG_ID_RUN_INFO) {
+					RunInfoRepsonse &feed_back_data = _packet.d.rspRunInfo;
+
+					//printf("esc %d rpm %d \n", feed_back_data.channelID, feed_back_data.speed);
+
+					if (feed_back_data.channelID < esc_status_s::CONNECTED_ESC_MAX) {
+						_esc_feedback.esc[feed_back_data.channelID].esc_rpm = feed_back_data.speed;
+//					_esc_feedback.esc[feed_back_data.channelID].esc_voltage = feed_back_data.voltage;
+						_esc_feedback.esc[feed_back_data.channelID].esc_state = feed_back_data.ESCStatus;
+						_esc_feedback.esc[feed_back_data.channelID].esc_vendor = esc_status_s::ESC_VENDOR_TAP;
+						// printf("vol is %d\n",feed_back_data.voltage );
+						// printf("speed is %d\n",feed_back_data.speed );
+
+						_esc_feedback.esc_connectiontype = esc_status_s::ESC_CONNECTION_TYPE_SERIAL;
+						_esc_feedback.counter++;
+						_esc_feedback.esc_count = esc_count;
+
+						_esc_feedback.timestamp = hrt_absolute_time();
+
+						orb_publish(ORB_ID(esc_status), _esc_feedback_pub, &_esc_feedback);
+					}
+				}
+			}
+
+			/* and publish for anyone that cares to see */
+			orb_publish(ORB_ID(actuator_outputs), _outputs_pub, &_outputs);
+
+		}
+
+		bool updated;
+
+		orb_check(_armed_sub, &updated);
+
+		if (updated) {
+			orb_copy(ORB_ID(actuator_armed), _armed_sub, &_armed);
+
+			if (_is_armed != _armed.armed) {
+				/* reset all outputs */
+				for (size_t i = 0; i < sizeof(_outputs.output) / sizeof(_outputs.output[0]); i++) {
+					_outputs.output[i] = NAN;
+				}
+			}
+
+			_is_armed = _armed.armed;
+
+		}
+
+
+	}
+
+	void TAP_ESC::work_stop() {
+		for (unsigned i = 0; i < actuator_controls_s::NUM_ACTUATOR_CONTROL_GROUPS; i++) {
+			if (_control_subs[i] >= 0) {
+				orb_unsubscribe(_control_subs[i]);
+				_control_subs[i] = -1;
+			}
+		}
+
+		orb_unsubscribe(_armed_sub);
+		_armed_sub = -1;
+		orb_unsubscribe(_test_motor_sub);
+		_test_motor_sub = -1;
+
+		DEVICE_LOG("stopping");
+		_initialized = false;
+	}
+
+	int TAP_ESC::control_callback_trampoline(uintptr_t handle, uint8_t control_group, uint8_t control_index,
+			float & input) {
+		TAP_ESC *obj = (TAP_ESC *)handle;
+		return obj->control_callback(control_group, control_index, input);
+	}
+
+	int TAP_ESC::control_callback(uint8_t control_group, uint8_t control_index, float & input) {
+		input = _controls[control_group].control[control_index];
+
+		/* limit control input */
+		if (input > 1.0f) {
+			input = 1.0f;
+
+		} else if (input < -1.0f) {
+			input = -1.0f;
+		}
+
+		/* motor spinup phase - lock throttle to zero */
+		// if (_pwm_limit.state == PWM_LIMIT_STATE_RAMP) {
+		// 	if ((control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE ||
+		// 	     control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE_ALTERNATE) &&
+		// 	    control_index == actuator_controls_s::INDEX_THROTTLE) {
+		// 		/* limit the throttle output to zero during motor spinup,
+		// 		 * as the motors cannot follow any demand yet
+		// 		 */
+		// 		input = 0.0f;
+		// 	}
+		// }
+
+		/* throttle not arming - mark throttle input as invalid */
+		if (_armed.prearmed && !_armed.armed) {
+			if ((control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE ||
+			     control_group == actuator_controls_s::GROUP_INDEX_ATTITUDE_ALTERNATE) &&
+			    control_index == actuator_controls_s::INDEX_THROTTLE) {
+				/* set the throttle to an invalid value */
+				input = NAN_VALUE;
+			}
+		}
+
+		return 0;
+	}
+
+	int
+	TAP_ESC::ioctl(device::file_t *filp, int cmd, unsigned long arg) {
+		int ret = OK;
+
+		switch (cmd) {
+
+		case MIXERIOCRESET:
+			if (_mixers != nullptr) {
+				delete _mixers;
+				_mixers = nullptr;
+				_groups_required = 0;
+			}
+
+			break;
+
+		case MIXERIOCLOADBUF: {
+				const char *buf = (const char *)arg;
+				unsigned buflen = strlen(buf);
+
+				if (_mixers == nullptr) {
+					_mixers = new MixerGroup(control_callback_trampoline, (uintptr_t)this);
+				}
+
+				if (_mixers == nullptr) {
 					_groups_required = 0;
-					ret = -EINVAL;
+					ret = -ENOMEM;
 
 				} else {
 
-					_mixers->groups_required(_groups_required);
+					ret = _mixers->load_from_buf(buf, buflen);
+
+					if (ret != 0) {
+						DEVICE_DEBUG("mixer load failed with %d", ret);
+						delete _mixers;
+						_mixers = nullptr;
+						_groups_required = 0;
+						ret = -EINVAL;
+
+					} else {
+
+						_mixers->groups_required(_groups_required);
+					}
 				}
+
+				break;
 			}
 
+		default:
+			ret = -ENOTTY;
 			break;
 		}
 
-	default:
-		ret = -ENOTTY;
-		break;
+
+
+		return ret;
 	}
 
+	namespace tap_esc_drv
+	{
 
 
-	return ret;
-}
+	volatile bool _task_should_exit = false; // flag indicating if tap_esc task should exit
+	static char _device[32] = {};
+	static bool _is_running = false;         // flag indicating if tap_esc app is running
+	static px4_task_t _task_handle = -1;     // handle to the task main thread
+	static int _supported_channel_count = 0;
+	static uint8_t reverse_channel_bitmaks = 0;
 
-namespace tap_esc_drv
-{
+	static bool _flow_control_enabled = false;
 
+	void usage();
 
-volatile bool _task_should_exit = false; // flag indicating if tap_esc task should exit
-static char _device[32] = {};
-static bool _is_running = false;         // flag indicating if tap_esc app is running
-static px4_task_t _task_handle = -1;     // handle to the task main thread
-static int _supported_channel_count = 0;
+	void start();
+	void stop();
+	int tap_esc_start(void);
+	int tap_esc_stop(void);
 
-static bool _flow_control_enabled = false;
+	void task_main_trampoline(int argc, char *argv[]);
 
-void usage();
+	void task_main(int argc, char *argv[]);
 
-void start();
-void stop();
-int tap_esc_start(void);
-int tap_esc_stop(void);
+	int initialise_uart();
 
-void task_main_trampoline(int argc, char *argv[]);
+	int deinitialize_uart();
 
-void task_main(int argc, char *argv[]);
+	int enable_flow_control(bool enabled);
 
-int initialise_uart();
-
-int deinitialize_uart();
-
-int enable_flow_control(bool enabled);
-
-int tap_esc_start(void)
-{
-	int ret = OK;
-
-	if (tap_esc == nullptr) {
-
-		tap_esc = new TAP_ESC(_supported_channel_count);
+	int tap_esc_start(void)
+	{
+		int ret = OK;
 
 		if (tap_esc == nullptr) {
-			ret = -ENOMEM;
 
-		} else {
-			ret = tap_esc->init();
+			tap_esc = new TAP_ESC(_supported_channel_count);
 
-			if (ret != OK) {
-				PX4_ERR("failed to initialize tap_esc (%i)", ret);
-				delete tap_esc;
-				tap_esc = nullptr;
+			if (tap_esc == nullptr) {
+				ret = -ENOMEM;
+
+			} else {
+				ret = tap_esc->init();
+
+				if (ret != OK) {
+					PX4_ERR("failed to initialize tap_esc (%i)", ret);
+					delete tap_esc;
+					tap_esc = nullptr;
+				}
 			}
 		}
+
+		return ret;
 	}
 
-	return ret;
-}
+	int tap_esc_stop(void)
+	{
+		int ret = OK;
 
-int tap_esc_stop(void)
-{
-	int ret = OK;
+		if (tap_esc != nullptr) {
 
-	if (tap_esc != nullptr) {
-
-		delete tap_esc;
-		tap_esc = nullptr;
-	}
-
-	return ret;
-}
-
-int initialise_uart()
-{
-	// open uart
-	_uart_fd = open(_device, O_RDWR | O_NOCTTY | O_NONBLOCK);
-	int termios_state = -1;
-
-	if (_uart_fd < 0) {
-		PX4_ERR("failed to open uart device!");
-		return -1;
-	}
-
-	// set baud rate
-	int speed = B250000;
-	struct termios uart_config;
-	tcgetattr(_uart_fd, &uart_config);
-
-	// clear ONLCR flag (which appends a CR for every LF)
-	uart_config.c_oflag &= ~ONLCR;
-
-	// set baud rate
-	if (cfsetispeed(&uart_config, speed) < 0 || cfsetospeed(&uart_config, speed) < 0) {
-		PX4_ERR("failed to set baudrate for %s: %d\n", _device, termios_state);
-		close(_uart_fd);
-		return -1;
-	}
-
-	if ((termios_state = tcsetattr(_uart_fd, TCSANOW, &uart_config)) < 0) {
-		PX4_ERR("tcsetattr failed for %s\n", _device);
-		close(_uart_fd);
-		return -1;
-	}
-
-	// setup output flow control
-	if (enable_flow_control(false)) {
-		PX4_WARN("hardware flow disable failed");
-	}
-
-	return _uart_fd;
-}
-
-int enable_flow_control(bool enabled)
-{
-	struct termios uart_config;
-
-	int ret = tcgetattr(_uart_fd, &uart_config);
-
-	if (enabled) {
-		uart_config.c_cflag |= CRTSCTS;
-
-	} else {
-		uart_config.c_cflag &= ~CRTSCTS;
-	}
-
-	ret = tcsetattr(_uart_fd, TCSANOW, &uart_config);
-
-	if (!ret) {
-		_flow_control_enabled = enabled;
-	}
-
-	return ret;
-}
-
-int deinitialize_uart()
-{
-	return close(_uart_fd);
-}
-
-void task_main(int argc, char *argv[])
-{
-
-	_is_running = true;
-
-	if (initialise_uart() < 0) {
-		PX4_ERR("Failed to initialize UART.");
-
-		while (_task_should_exit == false) {
-			usleep(100000);
+			delete tap_esc;
+			tap_esc = nullptr;
 		}
 
+		return ret;
+	}
+
+	int initialise_uart()
+	{
+		// open uart
+		_uart_fd = open(_device, O_RDWR | O_NOCTTY | O_NONBLOCK);
+		int termios_state = -1;
+
+		if (_uart_fd < 0) {
+			PX4_ERR("failed to open uart device!");
+			return -1;
+		}
+
+		// set baud rate
+		int speed = B250000;
+		struct termios uart_config;
+		tcgetattr(_uart_fd, &uart_config);
+
+		// clear ONLCR flag (which appends a CR for every LF)
+		uart_config.c_oflag &= ~ONLCR;
+
+		// set baud rate
+		if (cfsetispeed(&uart_config, speed) < 0 || cfsetospeed(&uart_config, speed) < 0) {
+			PX4_ERR("failed to set baudrate for %s: %d\n", _device, termios_state);
+			close(_uart_fd);
+			return -1;
+		}
+
+		if ((termios_state = tcsetattr(_uart_fd, TCSANOW, &uart_config)) < 0) {
+			PX4_ERR("tcsetattr failed for %s\n", _device);
+			close(_uart_fd);
+			return -1;
+		}
+
+		// setup output flow control
+		if (enable_flow_control(false)) {
+			PX4_WARN("hardware flow disable failed");
+		}
+
+		return _uart_fd;
+	}
+
+	int enable_flow_control(bool enabled)
+	{
+		struct termios uart_config;
+
+		int ret = tcgetattr(_uart_fd, &uart_config);
+
+		if (enabled) {
+			uart_config.c_cflag |= CRTSCTS;
+
+		} else {
+			uart_config.c_cflag &= ~CRTSCTS;
+		}
+
+		ret = tcsetattr(_uart_fd, TCSANOW, &uart_config);
+
+		if (!ret) {
+			_flow_control_enabled = enabled;
+		}
+
+		return ret;
+	}
+
+	int deinitialize_uart()
+	{
+		return close(_uart_fd);
+	}
+
+	void task_main(int argc, char *argv[])
+	{
+
+		_is_running = true;
+
+		if (initialise_uart() < 0) {
+			PX4_ERR("Failed to initialize UART.");
+
+			while (_task_should_exit == false) {
+				usleep(100000);
+			}
+
+			_is_running = false;
+			return;
+		}
+
+		if (tap_esc_start() != OK) {
+			PX4_ERR("failed to start tap_esc.");
+			_is_running = false;
+			return;
+		}
+
+
+		// Main loop
+		while (!_task_should_exit) {
+
+			tap_esc->cycle();
+
+		}
+
+
 		_is_running = false;
-		return;
 	}
 
-	if (tap_esc_start() != OK) {
-		PX4_ERR("failed to start tap_esc.");
-		_is_running = false;
-		return;
+	void task_main_trampoline(int argc, char *argv[])
+	{
+		task_main(argc, argv);
 	}
 
+	void start()
+	{
+		ASSERT(_task_handle == -1);
 
-	// Main loop
-	while (!_task_should_exit) {
+		_task_should_exit = false;
 
-		tap_esc->cycle();
+		/* start the task */
+		_task_handle = px4_task_spawn_cmd("tap_esc",
+						  SCHED_DEFAULT,
+						  SCHED_PRIORITY_ACTUATOR_OUTPUTS,
+						  1100,
+						  (px4_main_t)&task_main_trampoline,
+						  nullptr);
 
+		if (_task_handle < 0) {
+			PX4_ERR("task start failed");
+			_task_handle = -1;
+			return;
+		}
 	}
 
+	void stop()
+	{
+		_task_should_exit = true;
 
-	_is_running = false;
-}
+		while (_is_running) {
+			usleep(200000);
+			PX4_INFO("tap_esc_stop");
+		}
 
-void task_main_trampoline(int argc, char *argv[])
-{
-	task_main(argc, argv);
-}
-
-void start()
-{
-	ASSERT(_task_handle == -1);
-
-	_task_should_exit = false;
-
-	/* start the task */
-	_task_handle = px4_task_spawn_cmd("tap_esc",
-					  SCHED_DEFAULT,
-					  SCHED_PRIORITY_ACTUATOR_OUTPUTS,
-					  1100,
-					  (px4_main_t)&task_main_trampoline,
-					  nullptr);
-
-	if (_task_handle < 0) {
-		PX4_ERR("task start failed");
+		tap_esc_stop();
+		deinitialize_uart();
 		_task_handle = -1;
-		return;
-	}
-}
-
-void stop()
-{
-	_task_should_exit = true;
-
-	while (_is_running) {
-		usleep(200000);
-		PX4_INFO("tap_esc_stop");
 	}
 
-	tap_esc_stop();
-	deinitialize_uart();
-	_task_handle = -1;
-}
+	void usage()
+	{
+		PX4_INFO("usage: tap_esc start -d /dev/ttyS2 -n <1-8>");
+		PX4_INFO("       tap_esc stop");
+		PX4_INFO("       tap_esc status");
+	}
 
-void usage()
-{
-	PX4_INFO("usage: tap_esc start -d /dev/ttyS2 -n <1-8>");
-	PX4_INFO("       tap_esc stop");
-	PX4_INFO("       tap_esc status");
-}
-
-} // namespace tap_esc
+	} // namespace tap_esc
 
 // driver 'main' command
-extern "C" __EXPORT int tap_esc_main(int argc, char *argv[]);
+	extern "C" __EXPORT int tap_esc_main(int argc, char *argv[]);
 
-int tap_esc_main(int argc, char *argv[])
-{
-	const char *device = nullptr;
-	int ch;
-	int myoptind = 1;
-	const char *myoptarg = nullptr;
+	int tap_esc_main(int argc, char *argv[]) {
+		const char *device = nullptr;
+		int ch;
+		int myoptind = 1;
+		const char *myoptarg = nullptr;
+		unsigned long reverse_channels = 0;
+		unsigned single_channel = 0;
 
-	char *verb = nullptr;
+		char *verb = nullptr;
 
-	if (argc >= 2) {
-		verb = argv[1];
-	}
-
-	while ((ch = px4_getopt(argc, argv, "d:n:", &myoptind, &myoptarg)) != EOF) {
-		switch (ch) {
-		case 'd':
-			device = myoptarg;
-			strncpy(tap_esc_drv::_device, device, strlen(device));
-			break;
-
-		case 'n':
-			tap_esc_drv::_supported_channel_count = atoi(myoptarg);
-			break;
-		}
-	}
-
-	if (!tap_esc && tap_esc_drv::_task_handle != -1) {
-		tap_esc_drv::_task_handle = -1;
-	}
-
-	// Start/load the driver.
-	if (!strcmp(verb, "start")) {
-		if (tap_esc_drv::_is_running) {
-			PX4_WARN("tap_esc already running");
-			return 1;
+		if (argc >= 2) {
+			verb = argv[1];
 		}
 
-		// Check on required arguments
-		if (tap_esc_drv::_supported_channel_count == 0 || device == nullptr || strlen(device) == 0) {
+		while ((ch = px4_getopt(argc, argv, "d:n:", &myoptind, &myoptarg)) != EOF) {
+			switch (ch) {
+			case 'd':
+				device = myoptarg;
+				strncpy(tap_esc_drv::_device, device, strlen(device));
+				break;
+
+			case 'n':
+				tap_esc_drv::_supported_channel_count = atoi(myoptarg);
+				break;
+
+			case 'c':
+				reverse_channels = strtoul(myoptarg, &myoptarg, 0);
+
+				while ((single_channel = reverse_channels % 10)) {
+
+					tap_esc_drv::reverse_channel_bitmaks |= 1 << (single_channel - 1);
+					reverse_channels /= 10;
+				}
+
+				break;
+			}
+		}
+
+		if (!tap_esc && tap_esc_drv::_task_handle != -1) {
+			tap_esc_drv::_task_handle = -1;
+		}
+
+		// Start/load the driver.
+		if (!strcmp(verb, "start")) {
+			if (tap_esc_drv::_is_running) {
+				PX4_WARN("tap_esc already running");
+				return 1;
+			}
+
+			// Check on required arguments
+			if (tap_esc_drv::_supported_channel_count == 0 || device == nullptr || strlen(device) == 0) {
+				tap_esc_drv::usage();
+				return 1;
+			}
+
+			tap_esc_drv::start();
+		}
+
+		else if (!strcmp(verb, "stop")) {
+			if (!tap_esc_drv::_is_running) {
+				PX4_WARN("tap_esc is not running");
+				return 1;
+			}
+
+			tap_esc_drv::stop();
+		}
+
+		else if (!strcmp(verb, "status")) {
+			PX4_WARN("tap_esc is %s", tap_esc_drv::_is_running ? "running" : "not running");
+			return 0;
+
+		} else {
 			tap_esc_drv::usage();
 			return 1;
 		}
 
-		tap_esc_drv::start();
-	}
-
-	else if (!strcmp(verb, "stop")) {
-		if (!tap_esc_drv::_is_running) {
-			PX4_WARN("tap_esc is not running");
-			return 1;
-		}
-
-		tap_esc_drv::stop();
-	}
-
-	else if (!strcmp(verb, "status")) {
-		PX4_WARN("tap_esc is %s", tap_esc_drv::_is_running ? "running" : "not running");
 		return 0;
-
-	} else {
-		tap_esc_drv::usage();
-		return 1;
 	}
-
-	return 0;
-}
