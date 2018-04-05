@@ -602,6 +602,10 @@ void FixedwingAttitudeControl::run()
 					perf_count(_nonfinite_input_perf);
 				}
 
+				if (_vehicle_status.in_transition_mode || !_vehicle_status.is_rotary_wing) {
+					airspeed = _parameters.airspeed_max;
+				}
+
 				/*
 				 * For scaling our actuators using anything less than the min (close to stall)
 				 * speed doesn't make any sense - its the strongest reasonable deflection we
