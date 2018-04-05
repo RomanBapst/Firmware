@@ -48,10 +48,7 @@
 #define PITCH_TRANSITION_BACK -0.25f	// pitch angle to switch to MC
 
 Tailsitter::Tailsitter(VtolAttitudeControl *attc) :
-	VtolType(attc),
-	_thrust_transition_start(0.0f),
-	_yaw_transition(0.0f),
-	_pitch_transition_start(0.0f)
+	VtolType(attc)
 {
 	_vtol_schedule.flight_mode = MC_MODE;
 	_vtol_schedule.transition_start = 0;
@@ -63,6 +60,7 @@ Tailsitter::Tailsitter(VtolAttitudeControl *attc) :
 	_flag_was_in_trans_mode = false;
 
 	_params_handles_tailsitter.front_trans_dur_p2 = param_find("VT_TRANS_P2_DUR");
+	_params_handles_tailsitter.fw_pitch_sp_offset = param_find("FW_PSP_OFF");
 }
 
 Tailsitter::~Tailsitter()
@@ -78,6 +76,9 @@ Tailsitter::parameters_update()
 	/* vtol front transition phase 2 duration */
 	param_get(_params_handles_tailsitter.front_trans_dur_p2, &v);
 	_params_tailsitter.front_trans_dur_p2 = v;
+
+	param_get(_params_handles_tailsitter.fw_pitch_sp_offset, &v);
+	_params_tailsitter.fw_pitch_sp_offset = math::radians(v);
 }
 
 void Tailsitter::update_vtol_state()
@@ -109,9 +110,10 @@ void Tailsitter::update_vtol_state()
 			break;
 
 		case TRANSITION_BACK:
+			float time_since_trans_start = (float)(hrt_absolute_time() - _vtol_schedule.transition_start) * 1e-6f;
 
 			// check if we have reached pitch angle to switch to MC mode
-			if (pitch >= PITCH_TRANSITION_BACK) {
+			if (pitch >= PITCH_TRANSITION_BACK || time_since_trans_start > _params->back_trans_duration) {
 				_vtol_schedule.flight_mode = MC_MODE;
 			}
 
@@ -181,35 +183,33 @@ void Tailsitter::update_transition_state()
 	float time_since_trans_start = (float)(hrt_absolute_time() - _vtol_schedule.transition_start) * 1e-6f;
 
 	if (!_flag_was_in_trans_mode) {
-		// save desired heading for transition and last thrust value
-		_yaw_transition = _v_att_sp->yaw_body;
-		//transition should start from current attitude instead of current setpoint
-		matrix::Eulerf euler = matrix::Quatf(_v_att->q);
-		_pitch_transition_start = euler.theta();
-		_thrust_transition_start = _v_att_sp->thrust_z;
 		_flag_was_in_trans_mode = true;
+
+		if (_vtol_schedule.flight_mode == TRANSITION_BACK) {
+			_q_trans_start = matrix::Quatf(_v_att->q);
+			matrix::Vector3f z = matrix::Dcmf(_q_trans_start) * matrix::Vector3f(0, 0, -1);
+			_trans_rot_axis = z.cross(matrix::Vector3f(0, 0, -1));
+			float yaw_sp = atan2f(z(1), z(0));
+			_q_trans_start = matrix::Eulerf(0.0f, _fw_virtual_att_sp->pitch_body, yaw_sp);
+			_q_trans_start = _q_trans_start * matrix::Quatf(matrix::Eulerf(0, -M_PI_2_F, 0));
+
+		} else if (_vtol_schedule.flight_mode == TRANSITION_FRONT_P1) {
+			_q_trans_start = matrix::Eulerf(0.0f, _mc_virtual_att_sp->pitch_body, _mc_virtual_att_sp->yaw_body);
+			matrix::Vector3f x = matrix::Dcmf(matrix::Quatf(_v_att->q)) * matrix::Vector3f(1, 0, 0);
+			_trans_rot_axis = -x.cross(matrix::Vector3f(0, 0, -1));
+		}
+
+		_q_trans_sp = _q_trans_start;
 	}
 
 	if (_vtol_schedule.flight_mode == TRANSITION_FRONT_P1) {
 
-		// create time dependant pitch angle set point + 0.2 rad overlap over the switch value
-		_v_att_sp->pitch_body = _pitch_transition_start	- fabsf(PITCH_TRANSITION_FRONT_P1 - _pitch_transition_start) *
-					time_since_trans_start / _params->front_trans_duration;
-		_v_att_sp->pitch_body = math::constrain(_v_att_sp->pitch_body, PITCH_TRANSITION_FRONT_P1 - 0.2f,
-							_pitch_transition_start);
+		float tilt = acosf(_q_trans_sp(0) * _q_trans_sp(0) - _q_trans_sp(1) * _q_trans_sp(1) - _q_trans_sp(2) * _q_trans_sp(
+					   2) + _q_trans_sp(3) * _q_trans_sp(3));
 
-		_v_att_sp->thrust_z = _mc_virtual_att_sp->thrust_z;
-
-		// disable mc yaw control once the plane has picked up speed
-		if (_airspeed->indicated_airspeed_m_s > ARSP_YAW_CTRL_DISABLE) {
-			_mc_yaw_weight = 0.0f;
-
-		} else {
-			_mc_yaw_weight = 1.0f;
+		if (tilt < M_PI_2_F - _params_tailsitter.fw_pitch_sp_offset) {
+			_q_trans_sp = matrix::Quatf(matrix::AxisAnglef(_trans_rot_axis, time_since_trans_start * 1.0f)) * _q_trans_start;
 		}
-
-		_mc_roll_weight = 1.0f;
-		_mc_pitch_weight = 1.0f;
 
 	} else if (_vtol_schedule.flight_mode == TRANSITION_BACK) {
 
@@ -218,35 +218,23 @@ void Tailsitter::update_transition_state()
 			flag_idle_mc = true;
 		}
 
-		// create time dependant pitch angle set point stating at -pi/2 + 0.2 rad overlap over the switch value
-		_v_att_sp->pitch_body = M_PI_2_F + _pitch_transition_start + fabsf(PITCH_TRANSITION_BACK + 1.57f) *
-					time_since_trans_start / _params->back_trans_duration;
-		_v_att_sp->pitch_body = math::constrain(_v_att_sp->pitch_body, -2.0f, PITCH_TRANSITION_BACK + 0.2f);
-
-
-		_v_att_sp->thrust_z = _mc_virtual_att_sp->thrust_z;
-
-		// keep yaw disabled
-		_mc_yaw_weight = 0.0f;
-
-		// smoothly move control weight to MC
-		_mc_roll_weight = _mc_pitch_weight = time_since_trans_start / _params->back_trans_duration;
-
+		if (_q_trans_sp(1) * _q_trans_sp(1) + _q_trans_sp(2) * _q_trans_sp(2) > 0.01f) {
+			_q_trans_sp = matrix::Quatf(matrix::AxisAnglef(_trans_rot_axis, time_since_trans_start * 0.7f)) * _q_trans_start;
+		}
 	}
 
-	_mc_roll_weight = math::constrain(_mc_roll_weight, 0.0f, 1.0f);
-	_mc_yaw_weight = math::constrain(_mc_yaw_weight, 0.0f, 1.0f);
-	_mc_pitch_weight = math::constrain(_mc_pitch_weight, 0.0f, 1.0f);
+	_v_att_sp->thrust_z = _mc_virtual_att_sp->thrust_z;
 
-	// compute desired attitude and thrust setpoint for the transition
+	_mc_roll_weight = 1.0f;
+	_mc_pitch_weight = 1.0f;
+	_mc_yaw_weight = 1.0f;
 
 	_v_att_sp->timestamp = hrt_absolute_time();
-	_v_att_sp->roll_body = 0.0f;
-	_v_att_sp->yaw_body = _yaw_transition;
-
-	math::Quaternion q_sp;
-	q_sp.from_euler(_v_att_sp->roll_body, _v_att_sp->pitch_body, _v_att_sp->yaw_body);
-	memcpy(&_v_att_sp->q_d[0], &q_sp.data[0], sizeof(_v_att_sp->q_d));
+	matrix::Eulerf euler_sp(_q_trans_sp);
+	_v_att_sp->roll_body = euler_sp.phi();
+	_v_att_sp->pitch_body = euler_sp.theta();
+	_v_att_sp->yaw_body = euler_sp.psi();
+	memcpy(&_v_att_sp->q_d[0], &_q_trans_sp._data[0], sizeof(_v_att_sp->q_d));
 }
 
 void Tailsitter::waiting_on_tecs()
