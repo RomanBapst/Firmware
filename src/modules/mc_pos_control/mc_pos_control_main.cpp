@@ -3117,7 +3117,7 @@ MulticopterPositionControl::task_main()
 		}
 
 		/* reset setpoints and integrators VTOL in FW mode */
-		if (_vehicle_status.is_vtol && !_vehicle_status.is_rotary_wing) {
+		if (_vehicle_status.is_vtol && (!_vehicle_status.is_rotary_wing || _vehicle_status.in_transition_mode)) {
 			_reset_alt_sp = true;
 			_reset_int_xy = true;
 			_reset_int_z = true;
