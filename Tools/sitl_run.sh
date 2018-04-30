@@ -107,7 +107,7 @@ then
 			else
 				# gzserver needs to be running to avoid a race. Since the launch
 				# is putting it into the background we need to avoid it by backing off
-				sleep 3
+				sleep 1
 				nice -n 20 gzclient --verbose &
 				GUI_PID=`echo $!`
 			fi
@@ -116,6 +116,10 @@ then
 		echo "You need to have gazebo simulator installed!"
 		exit 1
 	fi
+elif [ "$program" == "jsbsim" ] && [ ! -n "$no_sim" ]
+then
+	$src_path/Tools/jsbsim/src/JSBSim --script=scripts/c172_elevation_test --realtime --simulation-rate=0.004 --root=$src_path/Tools/jsbsim &
+	SIM_PID=`echo $!`
 fi
 
 cd $working_dir
@@ -161,7 +165,7 @@ fi
 
 if [[ -z "$DONT_RUN" ]]
 then
-	if [ "$program" == "jmavsim" ]
+	if [ "$program" == "jmavsim" ] || ["$program" == "jsbsim"]
 	then
 		pkill -9 -P $SIM_PID
 		kill -9 $SIM_PID
