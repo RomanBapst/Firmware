@@ -118,8 +118,14 @@ then
 	fi
 elif [ "$program" == "jsbsim" ] && [ ! -n "$no_sim" ]
 then
-	JSBSim --script=scripts/c172_elevation_test --realtime --simulation-rate=0.004 --root=$src_path/Tools/jsbsim &
-	SIM_PID=`echo $!`
+
+	if [ -x "$(command -v $SIM_SRC_PATH/src/JSBSim)" ]
+	then
+		$SIM_SRC_PATH/src/JSBSim --script=scripts/c172_elevation_test --realtime --simulation-rate=0.004 --root=$SIM_SRC_PATH &
+		SIM_PID=`echo $!`
+	else
+		echo "Could not find JSBSim executable, follow instructions..."
+	fi
 fi
 
 cd $working_dir
@@ -128,8 +134,7 @@ cd $working_dir
 set +e
 
 sitl_command="$sudo_enabled $sitl_bin $no_pxh $chroot_enabled $src_path $src_path/${rcS_dir}/${model}"
-
-echo SITL COMMAND: $sitl_command
+$SIM_SRC_PATH/src/echo SITL COMMAND: $sitl_command
 
 if [[ -n "$DONT_RUN" ]]
 then
