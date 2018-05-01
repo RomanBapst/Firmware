@@ -118,7 +118,7 @@ then
 	fi
 elif [ "$program" == "jsbsim" ] && [ ! -n "$no_sim" ]
 then
-	$src_path/Tools/jsbsim/src/JSBSim --script=scripts/c172_elevation_test --realtime --simulation-rate=0.004 --root=$src_path/Tools/jsbsim &
+	JSBSim --script=scripts/c172_elevation_test --realtime --simulation-rate=0.004 --root=$src_path/Tools/jsbsim &
 	SIM_PID=`echo $!`
 fi
 
@@ -165,7 +165,7 @@ fi
 
 if [[ -z "$DONT_RUN" ]]
 then
-	if [ "$program" == "jmavsim" ] || ["$program" == "jsbsim"]
+	if [ "$program" == "jmavsim" ]
 	then
 		pkill -9 -P $SIM_PID
 		kill -9 $SIM_PID
@@ -175,5 +175,8 @@ then
 		if [[ ! -n "$HEADLESS" ]]; then
 			kill -9 $GUI_PID
 		fi
+	elif [ "$program" == "jsbsim" ]
+	then
+		kill $SIM_PID
 	fi
 fi
