@@ -121,7 +121,7 @@ then
 
 	if [ -x "$(command -v $SIM_SRC_PATH/src/JSBSim)" ]
 	then
-		$SIM_SRC_PATH/src/JSBSim --script=scripts/c172_elevation_test --realtime --simulation-rate=0.004 --root=$SIM_SRC_PATH &
+		$SIM_SRC_PATH/src/JSBSim --script=scripts/c172_ground --realtime --simulation-rate=0.004 --root=$SIM_SRC_PATH &
 		SIM_PID=`echo $!`
 	else
 		echo "Could not find JSBSim executable, follow instructions..."
