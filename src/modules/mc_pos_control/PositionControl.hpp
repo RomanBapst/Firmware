@@ -166,7 +166,7 @@ protected:
 
 private:
 	void _interfaceMapping(); /** maps set-points to internal member set-points */
-	void _positionController(); /** applies the P-position-controller */
+	void _positionController(const float &dt); /** applies the P-position-controller */
 	void _velocityController(const float &dt); /** applies the PID-velocity-controller */
 
 	matrix::Vector3f _pos{}; /**< MC position */
@@ -176,6 +176,7 @@ private:
 	float _yaw{0.0f}; /**< MC yaw */
 	matrix::Vector3f _pos_sp{}; /**< desired position */
 	matrix::Vector3f _vel_sp{}; /**< desired velocity */
+	matrix::Vector2f _vel_sp_2D_prev{};
 	matrix::Vector3f _acc_sp{}; /**< desired acceleration: not supported yet */
 	matrix::Vector3f _thr_sp{}; /**< desired thrust */
 	float _yaw_sp{}; /**< desired yaw */
@@ -202,6 +203,7 @@ private:
 		(ParamFloat<px4::params::MPC_XY_P>) MPC_XY_P,
 		(ParamFloat<px4::params::MPC_XY_VEL_P>) MPC_XY_VEL_P,
 		(ParamFloat<px4::params::MPC_XY_VEL_I>) MPC_XY_VEL_I,
-		(ParamFloat<px4::params::MPC_XY_VEL_D>) MPC_XY_VEL_D
+		(ParamFloat<px4::params::MPC_XY_VEL_D>) MPC_XY_VEL_D,
+		(ParamFloat<px4::params::MPC_ACC_HOR_MAX>) MPC_ACC_HOR_MAX
 	)
 };

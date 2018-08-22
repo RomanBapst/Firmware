@@ -93,7 +93,7 @@ void PositionControl::generateThrustYawSetpoint(const float &dt)
 		_acc_sp = _acc;
 
 	} else {
-		_positionController();
+		_positionController(dt);
 		_velocityController(dt);
 	}
 }
@@ -211,11 +211,29 @@ void PositionControl::_interfaceMapping()
 	}
 }
 
-void PositionControl::_positionController()
+void PositionControl::_positionController(const float &dt)
 {
 	// P-position controller
 	Vector3f vel_sp_position = (_pos_sp - _pos).emult(Vector3f(MPC_XY_P.get(), MPC_XY_P.get(), MPC_Z_P.get()));
-	_vel_sp = vel_sp_position + _vel_sp;
+
+	// copy raw x/y velocity setpoint
+	Vector2f vel_sp_2D(vel_sp_position(0), vel_sp_position(1));
+
+	// calculate acceleration resulting from current velocity setpoint
+	matrix::Vector2f acc = (vel_sp_2D - _vel_sp_2D_prev) / dt;
+
+	// limit velocity setoint is acceleration is exceeded
+	if (acc.length() > MPC_ACC_HOR_MAX.get()) {
+		vel_sp_2D = acc.normalized() * MPC_ACC_HOR_MAX.get()  * dt + _vel_sp_2D_prev;
+	}
+
+	// we could have a flightask feedforwarding to _vel_sp alread so add the changes resulting from position error rather than overwriting
+	_vel_sp(0) += vel_sp_2D(0);
+	_vel_sp(1) += vel_sp_2D(1);
+	_vel_sp(2) += vel_sp_position(2);
+
+	// update the previous velocity setpoint
+	_vel_sp_2D_prev = vel_sp_2D;
 
 	// Constrain horizontal velocity by prioritizing the velocity component along the
 	// the desired position setpoint over the feed-forward term.
