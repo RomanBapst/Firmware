@@ -141,6 +141,8 @@ private:
 		(ParamFloat<px4::params::WEST_BETA_NOISE>) _param_west_beta_noise, /**<  */
 		(ParamInt<px4::params::WEST_TAS_GATE>) _param_west_tas_gate, /**<  */
 		(ParamInt<px4::params::WEST_BETA_GATE>) _param_west_beta_gate, /**<  */
+		(ParamInt<px4::params::WEST_TAS_ON>) _param_west_scale_estimation_on, /**<  */
+
 
 		(ParamFloat<px4::params::COM_TAS_FS_INNOV>) _tas_innov_threshold, /**< innovation check threshold */
 		(ParamFloat<px4::params::COM_TAS_FS_INTEG>) _tas_innov_integ_threshold, /**< innovation check integrator threshold */
@@ -327,6 +329,8 @@ void AirspeedModule::update_params()
 		_airspeed_validator[i].set_wind_estimator_beta_noise(_param_west_beta_noise.get());
 		_airspeed_validator[i].set_wind_estimator_tas_gate(_param_west_tas_gate.get());
 		_airspeed_validator[i].set_wind_estimator_beta_gate(_param_west_beta_gate.get());
+		_airspeed_validator[i].set_wind_estimator_scale_estimation_on(_param_west_scale_estimation_on.get());
+
 
 		_airspeed_validator[i].set_tas_innov_threshold(_tas_innov_threshold.get());
 		_airspeed_validator[i].set_tas_innov_integ_threshold(_tas_innov_integ_threshold.get());

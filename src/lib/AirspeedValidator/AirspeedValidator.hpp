@@ -110,6 +110,7 @@ public:
 	void set_wind_estimator_beta_noise(float beta_var) { _wind_estimator_beta_var = beta_var * beta_var; }
 	void set_wind_estimator_tas_gate(uint8_t gate_size) { _wind_estimator_tas_gate = gate_size; }
 	void set_wind_estimator_beta_gate(uint8_t gate_size) { _wind_estimator_beta_gate = gate_size; }
+	void set_wind_estimator_scale_estimation_on(bool scale_estimation_on) {_scale_estimation_on = scale_estimation_on;}
 
 	void set_tas_innov_threshold(float tas_innov_threshold) { _tas_innov_threshold = tas_innov_threshold; }
 	void set_tas_innov_integ_threshold(float tas_innov_integ_threshold) { _tas_innov_integ_threshold = tas_innov_integ_threshold; }
@@ -131,6 +132,8 @@ private:
 	float _wind_estimator_beta_var{0.5f};	///< sideslip measurement noise variance
 	uint8_t _wind_estimator_tas_gate{3};	///< airspeed fusion gate size
 	uint8_t _wind_estimator_beta_gate{1};	///< sideslip fusion gate size
+	bool _scale_estimation_on{false};	///< online scale estimation (IAS-->CAS/EAS) is on
+
 
 	// general states
 	bool _in_fixed_wing_flight{false}; ///< variable to bypass innovation and load factor checks

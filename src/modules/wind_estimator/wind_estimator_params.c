@@ -69,3 +69,14 @@ PARAM_DEFINE_INT32(WEST_TAS_GATE, 3);
  * @group Wind Estimator
  */
 PARAM_DEFINE_INT32(WEST_BETA_GATE, 1);
+
+/**
+ * Automatic airspeed scale estimation on
+ *
+ * Turns the automatic airspeed scale (scale from IAS to CAS/EAS) on or off.
+ *
+ * @boolean
+ * @reboot_required false
+ * @group Wind Estimator
+ */
+PARAM_DEFINE_INT32(WEST_TAS_ON, 0);
