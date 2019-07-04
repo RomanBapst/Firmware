@@ -60,6 +60,7 @@ AirspeedValidator::update_airspeed_validator(struct airspeed_validator_update_da
 		_previous_airspeed_timestamp = input_data.airspeed_timestamp;
 	}
 
+	update_wind_estimator_params();
 	update_wind_estimator(input_data.timestamp, input_data.airspeed_true_raw, input_data.lpos_valid, input_data.lpos_vx,
 			      input_data.lpos_vy,
 			      input_data.lpos_vz, input_data.lpos_evh, input_data.lpos_evv, input_data.att_q);
@@ -69,6 +70,19 @@ AirspeedValidator::update_airspeed_validator(struct airspeed_validator_update_da
 	check_airspeed_innovation(input_data.timestamp, input_data.vel_test_ratio, input_data.mag_test_ratio);
 	check_load_factor(input_data.accel_z);
 	update_airspeed_valid_status(input_data.timestamp);
+}
+
+void
+AirspeedValidator::update_wind_estimator_params()
+{
+	// update wind & airspeed scale estimator parameters
+	_wind_estimator.set_wind_p_noise(_wind_estimator_wind_p_var);
+	_wind_estimator.set_tas_scale_p_noise(_wind_estimator_tas_scale_p_var);
+	_wind_estimator.set_tas_noise(_wind_estimator_tas_var);
+	_wind_estimator.set_beta_noise(_wind_estimator_beta_var);
+	_wind_estimator.set_tas_gate(_wind_estimator_tas_gate);
+	_wind_estimator.set_beta_gate(_wind_estimator_beta_gate);
+	_wind_estimator.set_scale_estimation_on(_wind_estimator_scale_estimation_on);
 }
 
 void
@@ -120,13 +134,13 @@ AirspeedValidator::get_wind_estimator_states(uint64_t timestamp)
 void
 AirspeedValidator::update_EAS_scale()
 {
-	bool get_EAS_scale_from_windEstimator =
-		true; //set to false to disable dynamically estimate scale. Could be in input_data.
-
-	// scale from WindEstimator is inverted (EAS to IAS, not IAS to EAS)
-	if (get_EAS_scale_from_windEstimator) {
+	if (_wind_estimator_scale_estimation_on) {
 		_EAS_scale = 1.0f / math::constrain(_wind_estimator.get_tas_scale(), 0.75f, 1.25f);
+
+	} else {
+		_EAS_scale = _airspeed_scale_manual;
 	}
+
 }
 
 void

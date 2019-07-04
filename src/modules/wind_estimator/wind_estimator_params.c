@@ -1,74 +1,74 @@
 /**
- * Enable Wind estimator
+ * Enable Airspeed Validator
  *
  * @boolean
  * @reboot_required true
- * @group Wind Estimator
+ * @group Airspeed Validator
  */
-PARAM_DEFINE_INT32(WEST_EN, 0);
+PARAM_DEFINE_INT32(WEST_EN, 1);
 
 /**
- * Wind estimator wind process noise.
+ * Airspeed Validator: Wind estimator wind process noise.
  *
  * @min 0
  * @max 1
  * @unit m/s/s
- * @group Wind Estimator
+ * @group Airspeed Validator
  */
-PARAM_DEFINE_FLOAT(WEST_W_P_NOISE, 0.1f);
+PARAM_DEFINE_FLOAT(ARSPV_W_P_NOISE, 0.1f);
 
 /**
- * Wind estimator true airspeed scale process noise.
+ * Airspeed Validator: Wind estimator true airspeed scale process noise.
  *
  * @min 0
  * @max 0.1
- * @group Wind Estimator
+ * @group Airspeed Validator
  */
-PARAM_DEFINE_FLOAT(WEST_SC_P_NOISE, 0.0001);
+PARAM_DEFINE_FLOAT(ARSPV_SC_P_NOISE, 0.0001);
 
 /**
- * Wind estimator true airspeed measurement noise.
+ * Airspeed Validator: Wind estimator true airspeed measurement noise.
  *
  * @min 0
  * @max 4
  * @unit m/s
- * @group Wind Estimator
+ * @group Airspeed Validator
  */
-PARAM_DEFINE_FLOAT(WEST_TAS_NOISE, 1.4);
+PARAM_DEFINE_FLOAT(ARSPV_TAS_NOISE, 1.4);
 
 /**
- * Wind estimator sideslip measurement noise.
+ * Airspeed Validator: Wind estimator sideslip measurement noise.
  *
  * @min 0
  * @max 1
  * @unit rad
- * @group Wind Estimator
+ * @group Airspeed Validator
  */
-PARAM_DEFINE_FLOAT(WEST_BETA_NOISE, 0.3);
+PARAM_DEFINE_FLOAT(ARSPV_BETA_NOISE, 0.3);
 
 /**
- * Gate size for true airspeed fusion.
+ * Airspeed Validator: Gate size for true airspeed fusion.
  *
  * Sets the number of standard deviations used by the innovation consistency test.
  *
  * @min 1
  * @max 5
  * @unit SD
- * @group Wind Estimator
+ * @group Airspeed Validator
  */
-PARAM_DEFINE_INT32(WEST_TAS_GATE, 3);
+PARAM_DEFINE_INT32(ARSPV_TAS_GATE, 3);
 
 /**
- * Gate size for true sideslip fusion.
+ * Airspeed Validator: Gate size for true sideslip fusion.
  *
  * Sets the number of standard deviations used by the innovation consistency test.
  *
  * @min 1
  * @max 5
  * @unit SD
- * @group Wind Estimator
+ * @group Airspeed Validator
  */
-PARAM_DEFINE_INT32(WEST_BETA_GATE, 1);
+PARAM_DEFINE_INT32(ARSPV_BETA_GATE, 1);
 
 /**
  * Automatic airspeed scale estimation on
@@ -76,7 +76,17 @@ PARAM_DEFINE_INT32(WEST_BETA_GATE, 1);
  * Turns the automatic airspeed scale (scale from IAS to CAS/EAS) on or off.
  *
  * @boolean
- * @reboot_required false
- * @group Wind Estimator
+ * @group Airspeed Validator
  */
-PARAM_DEFINE_INT32(WEST_TAS_ON, 0);
+PARAM_DEFINE_INT32(ARSPV_SCALE_EST, 0);
+
+/**
+ * Airspeed scale (scale from IAS to CAS/EAS)
+ *
+ * Scale can either be entered manually, or estimated in-flight by setting ARSPV_SCALE_EST to 1. It is recommended to only enable this when loitering (with little altitude changes, not high bank angles).
+ *
+ * @min 0.5
+ * @max 1.5
+ * @group Airspeed Validator
+ */
+PARAM_DEFINE_FLOAT(ARSPV_ARSP_SCALE, 1.0f);

@@ -135,13 +135,14 @@ private:
 
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::WEST_W_P_NOISE>) _param_west_w_p_noise, /**<  */
-		(ParamFloat<px4::params::WEST_SC_P_NOISE>) _param_west_sc_p_noise, /**<  */
-		(ParamFloat<px4::params::WEST_TAS_NOISE>) _param_west_tas_noise, /**<  */
-		(ParamFloat<px4::params::WEST_BETA_NOISE>) _param_west_beta_noise, /**<  */
-		(ParamInt<px4::params::WEST_TAS_GATE>) _param_west_tas_gate, /**<  */
-		(ParamInt<px4::params::WEST_BETA_GATE>) _param_west_beta_gate, /**<  */
-		(ParamInt<px4::params::WEST_TAS_ON>) _param_west_scale_estimation_on, /**<  */
+		(ParamFloat<px4::params::ARSPV_W_P_NOISE>) _param_west_w_p_noise, /**<  */
+		(ParamFloat<px4::params::ARSPV_SC_P_NOISE>) _param_west_sc_p_noise, /**<  */
+		(ParamFloat<px4::params::ARSPV_TAS_NOISE>) _param_west_tas_noise, /**<  */
+		(ParamFloat<px4::params::ARSPV_BETA_NOISE>) _param_west_beta_noise, /**<  */
+		(ParamInt<px4::params::ARSPV_TAS_GATE>) _param_west_tas_gate, /**<  */
+		(ParamInt<px4::params::ARSPV_BETA_GATE>) _param_west_beta_gate, /**<  */
+		(ParamInt<px4::params::ARSPV_SCALE_EST>) _param_west_scale_estimation_on, /**<  */
+		(ParamFloat<px4::params::ARSPV_ARSP_SCALE>) _param_west_airspeed_scale, /**<  */
 
 
 		(ParamFloat<px4::params::COM_TAS_FS_INNOV>) _tas_innov_threshold, /**< innovation check threshold */
@@ -331,6 +332,10 @@ void AirspeedModule::update_params()
 		_airspeed_validator[i].set_wind_estimator_beta_gate(_param_west_beta_gate.get());
 		_airspeed_validator[i].set_wind_estimator_scale_estimation_on(_param_west_scale_estimation_on.get());
 
+		/* Only apply manual entered airspeed scale to first airspeed measurement */
+		_airspeed_validator[0].set_airspeed_scale(_param_west_airspeed_scale.get());
+
+
 
 		_airspeed_validator[i].set_tas_innov_threshold(_tas_innov_threshold.get());
 		_airspeed_validator[i].set_tas_innov_integ_threshold(_tas_innov_integ_threshold.get());
@@ -506,7 +511,7 @@ void AirspeedModule::select_airspeed_and_publish()
 
 	/* publish the wind estimator states from all airspeed validators */
 	for (int i = 0; i < _number_of_airspeed_sensors; i++) {
-		wind_estimate_s wind_est = _airspeed_validator[i].get_wind_estimator_states(hrt_abstime());
+		wind_estimate_s wind_est = _airspeed_validator[i].get_wind_estimator_states(hrt_absolute_time());
 		orb_publish_auto(ORB_ID(wind_estimate), &_wind_est_pub[i + 1], &wind_est, &instance, ORB_PRIO_DEFAULT);
 	}
 
