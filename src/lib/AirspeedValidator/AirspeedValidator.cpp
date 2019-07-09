@@ -76,10 +76,10 @@ void
 AirspeedValidator::update_wind_estimator_params()
 {
 	// update wind & airspeed scale estimator parameters
-	_wind_estimator.set_wind_p_noise(_wind_estimator_wind_p_var);
-	_wind_estimator.set_tas_scale_p_noise(_wind_estimator_tas_scale_p_var);
-	_wind_estimator.set_tas_noise(_wind_estimator_tas_var);
-	_wind_estimator.set_beta_noise(_wind_estimator_beta_var);
+	_wind_estimator.set_wind_p_noise(_wind_estimator_wind_p_sigma);
+	_wind_estimator.set_tas_scale_p_noise(_wind_estimator_tas_scale_p_sigma);
+	_wind_estimator.set_tas_noise(_wind_estimator_tas_sigma);
+	_wind_estimator.set_beta_noise(_wind_estimator_beta_sigma);
 	_wind_estimator.set_tas_gate(_wind_estimator_tas_gate);
 	_wind_estimator.set_beta_gate(_wind_estimator_beta_gate);
 	_wind_estimator.set_scale_estimation_on(_wind_estimator_scale_estimation_on);
@@ -157,7 +157,13 @@ AirspeedValidator::check_airspeed_innovation(uint64_t time_now, float estimator_
 	// Check normalised innovation levels with requirement for continuous data and use of hysteresis
 	// to prevent false triggering.
 
-	if (!_in_fixed_wing_flight) {
+	if (_wind_estimator.get_wind_estimator_reset()) {
+		_time_wind_estimator_initialized = time_now;
+	}
+
+	/* Wait 2s after wind estiamtor was initialzed or reset until innovation checks are done.
+		TO DO: base this on actual wind states variance, not just time.*/
+	if (!_in_fixed_wing_flight || (hrt_elapsed_time(&_time_wind_estimator_initialized) < 2000_ms)) {
 		// not in a flight condition that enables use of this check, thus pass check
 		_innovations_check_failed = false;
 		_time_last_tas_pass = time_now;

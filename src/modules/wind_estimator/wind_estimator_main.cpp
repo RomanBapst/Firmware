@@ -322,6 +322,15 @@ void AirspeedModule::update_params()
 {
 	updateParams();
 
+	/* update wind estimator (sideslip fusion only) parameters */
+	_wind_estimator_sideslip.set_wind_p_noise(_param_west_w_p_noise.get());
+	_wind_estimator_sideslip.set_tas_scale_p_noise(_param_west_sc_p_noise.get());
+	_wind_estimator_sideslip.set_tas_noise(_param_west_tas_noise.get());
+	_wind_estimator_sideslip.set_beta_noise(_param_west_beta_noise.get());
+	_wind_estimator_sideslip.set_tas_gate(_param_west_tas_gate.get());
+	_wind_estimator_sideslip.set_beta_gate(_param_west_beta_gate.get());
+	_wind_estimator_sideslip.set_scale_estimation_on(false);
+
 	/* update airspeedValidator parameters */
 	for (int i = 0; i < _number_of_airspeed_sensors; i++) {
 		_airspeed_validator[i].set_wind_estimator_wind_p_noise(_param_west_w_p_noise.get());
@@ -334,8 +343,6 @@ void AirspeedModule::update_params()
 
 		/* Only apply manual entered airspeed scale to first airspeed measurement */
 		_airspeed_validator[0].set_airspeed_scale(_param_west_airspeed_scale.get());
-
-
 
 		_airspeed_validator[i].set_tas_innov_threshold(_tas_innov_threshold.get());
 		_airspeed_validator[i].set_tas_innov_integ_threshold(_tas_innov_integ_threshold.get());
@@ -463,8 +470,8 @@ void AirspeedModule::select_airspeed_and_publish()
 
 	/* publish critical message (and log) in index has changed */
 	if (_valid_airspeed_index != _prev_airspeed_index) {
-		mavlink_log_critical(&_mavlink_log_pub, "Airspeed estimation: Switched from sensor %i to %i", _prev_airspeed_index,
-				     _valid_airspeed_index);
+		mavlink_log_info(&_mavlink_log_pub, "Airspeed: Switched from sensor %i to %i", _prev_airspeed_index,
+				 _valid_airspeed_index);
 	}
 
 	_prev_airspeed_index = _valid_airspeed_index;

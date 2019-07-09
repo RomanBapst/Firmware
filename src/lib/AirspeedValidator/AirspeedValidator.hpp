@@ -104,10 +104,10 @@ public:
 	void check_load_factor(float accel_z);
 	void update_airspeed_valid_status(uint64_t timestamp);
 
-	void set_wind_estimator_wind_p_noise(float wind_sigma) { _wind_estimator_wind_p_var = wind_sigma * wind_sigma; }
-	void set_wind_estimator_tas_scale_p_noise(float tas_scale_sigma) { _wind_estimator_tas_scale_p_var = tas_scale_sigma * tas_scale_sigma; }
-	void set_wind_estimator_tas_noise(float tas_sigma) { _wind_estimator_tas_var = tas_sigma * tas_sigma; }
-	void set_wind_estimator_beta_noise(float beta_var) { _wind_estimator_beta_var = beta_var * beta_var; }
+	void set_wind_estimator_wind_p_noise(float wind_sigma) { _wind_estimator_wind_p_sigma = wind_sigma; }
+	void set_wind_estimator_tas_scale_p_noise(float tas_scale_sigma) { _wind_estimator_tas_scale_p_sigma = tas_scale_sigma; }
+	void set_wind_estimator_tas_noise(float tas_sigma) { _wind_estimator_tas_sigma = tas_sigma; }
+	void set_wind_estimator_beta_noise(float beta_var) { _wind_estimator_beta_sigma = beta_var; }
 	void set_wind_estimator_tas_gate(uint8_t gate_size) { _wind_estimator_tas_gate = gate_size; }
 	void set_wind_estimator_beta_gate(uint8_t gate_size) { _wind_estimator_beta_gate = gate_size; }
 	void set_wind_estimator_scale_estimation_on(bool scale_estimation_on) {_wind_estimator_scale_estimation_on = scale_estimation_on;}
@@ -128,10 +128,10 @@ private:
 	WindEstimator _wind_estimator{}; ///< wind estimator instance running in this particular airspeedValidator
 
 	// wind estimator parameter
-	float _wind_estimator_wind_p_var{0.1f};	///< wind process noise variance
-	float _wind_estimator_tas_scale_p_var{0.0001f};	///< true airspeed scale process noise variance
-	float _wind_estimator_tas_var{1.4f};		///< true airspeed measurement noise variance
-	float _wind_estimator_beta_var{0.5f};	///< sideslip measurement noise variance
+	float _wind_estimator_wind_p_sigma{0.1f};	///< wind process noise standard variation
+	float _wind_estimator_tas_scale_p_sigma{0.0001f};	///< true airspeed scale process noise standard variation
+	float _wind_estimator_tas_sigma{1.4f};		///< true airspeed measurement noise standard variation
+	float _wind_estimator_beta_sigma{0.5f};	///< sideslip measurement noise standard variation
 	uint8_t _wind_estimator_tas_gate{3};	///< airspeed fusion gate size
 	uint8_t _wind_estimator_beta_gate{1};	///< sideslip fusion gate size
 	bool _wind_estimator_scale_estimation_on{false};	///< online scale estimation (IAS-->CAS/EAS) is on
@@ -161,6 +161,7 @@ private:
 	uint64_t	_time_last_tas_fail{0};		///< last time innovation checks failed
 	float		_apsd_innov_integ_state{0.0f};	///< inegral of excess normalised airspeed innovation (sec)
 	static constexpr uint64_t TAS_INNOV_FAIL_DELAY{1_s};	///< time required for innovation levels to pass or fail (usec)
+	uint64_t	_time_wind_estimator_initialized{0};		///< time last time wind estimator was initialized (uSec)
 
 	// states of load factor check
 	bool _load_factor_check_failed{false}; ///< load_factor check has detected failure
