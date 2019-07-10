@@ -384,6 +384,19 @@ void AirspeedModule::poll_topics()
 	_vehicle_local_position_valid = (time_now_usec - _vehicle_local_position.timestamp < 1_s)
 					&& (_vehicle_local_position.timestamp > 0) && _vehicle_local_position.v_xy_valid;
 
+	if (time_now_usec - _vehicle_local_position.timestamp > 1_s) {
+		mavlink_log_info(&_mavlink_log_pub, "lpos timestamp older than 1s");
+	}
+
+	if (_vehicle_local_position.timestamp <= 0) {
+		mavlink_log_info(&_mavlink_log_pub, "lpos timestamp smaller than 0");
+	}
+
+	if (!_vehicle_local_position.v_xy_valid) {
+		mavlink_log_info(&_mavlink_log_pub, "!_vehicle_local_position.v_xy_valid");
+	}
+
+
 }
 
 void AirspeedModule::update_wind_estimator_sideslip()
