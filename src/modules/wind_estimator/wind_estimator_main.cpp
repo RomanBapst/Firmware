@@ -130,6 +130,8 @@ private:
 	float _ground_minus_wind_TAS{0.0f}; /**< true airspeed from groundspeed minus windspeed */
 	float _ground_minus_wind_EAS{0.0f}; /**< true airspeed from groundspeed minus windspeed */
 
+	bool _scale_estimation_previously_on{false}; /**< scale_estimation was on in the last cycle */
+
 	perf_counter_t _perf_elapsed{};
 	perf_counter_t _perf_interval{};
 
@@ -239,6 +241,7 @@ AirspeedModule::Run()
 			}
 		}
 
+		_scale_estimation_previously_on = _param_west_scale_estimation_on.get();
 		_initialized = true;
 	}
 
@@ -305,10 +308,24 @@ AirspeedModule::Run()
 		}
 	}
 
-
-
-
 	select_airspeed_and_publish();
+
+	/* If one sensor is valid and we switched out of scale estimation, then publish message and change the value of param ARSPV_ARSP_SCALE */
+	if (_scale_estimation_previously_on && !_param_west_scale_estimation_on.get()) {
+		if (_valid_airspeed_index >= 0) {
+
+			_param_west_airspeed_scale.set(_airspeed_validator[_valid_airspeed_index].get_EAS_scale());
+			_param_west_airspeed_scale.commit_no_notification();
+
+			mavlink_log_info(&_mavlink_log_pub, "Airspeed: estimated scale: %1.2f. Saved in as ARSPV_ARSP_SCALE.",
+					 (double)_airspeed_validator[_valid_airspeed_index].get_EAS_scale());
+
+		} else {
+			mavlink_log_info(&_mavlink_log_pub, "Airspeed: can't estimate scale as no valid sensor");
+		}
+	}
+
+	_scale_estimation_previously_on = _param_west_scale_estimation_on.get();
 
 	perf_end(_perf_elapsed);
 
@@ -354,40 +371,19 @@ void AirspeedModule::update_params()
 
 void AirspeedModule::poll_topics()
 {
+	_estimator_status_sub.update(&_estimator_status);
+	_sensor_bias_sub.update(&_sensor_bias);
+	_vehicle_air_data_sub.update(&_vehicle_air_data);
+	_vehicle_attitude_sub.update(&_vehicle_attitude);
+	_vehicle_land_detected_sub.update(&_vehicle_land_detected);
+	_vehicle_status_sub.update(&_vehicle_status);
+	_vtol_vehicle_status_sub.update(&_vtol_vehicle_status);
+	_vehicle_local_position_sub.update(&_vehicle_local_position);
+
 	const hrt_abstime time_now_usec = hrt_absolute_time();
+	_vehicle_local_position_valid = (time_now_usec - _vehicle_local_position.timestamp < 1_s)
+					&& (_vehicle_local_position.timestamp > 0) && _vehicle_local_position.v_xy_valid;
 
-	if (_estimator_status_sub.update(&_estimator_status)) {
-		// _vehicle_attitude_valid = (_time_now_usec - sensor_bias.timestamp < 1_s) && (sensor_bias.timestamp > 0);
-	}
-
-	if (_sensor_bias_sub.update(&_sensor_bias)) {
-		// _vehicle_attitude_valid = (_time_now_usec - sensor_bias.timestamp < 1_s) && (sensor_bias.timestamp > 0);
-	}
-
-	if (_vehicle_air_data_sub.update(&_vehicle_air_data)) {
-		// vehicle_air_data_valid = (_time_now_usec - vehicle_air_data.timestamp < 1_s) && (vehicle_air_data.timestamp > 0);
-	}
-
-	if (_vehicle_attitude_sub.update(&_vehicle_attitude)) {
-		// _vehicle_attitude_valid = (_time_now_usec - vehicle_attitude.timestamp < 1_s) && (vehicle_attitude.timestamp > 0);
-	}
-
-	if (_vehicle_land_detected_sub.update(&_vehicle_land_detected)) {
-		// _vehicle_attitude_valid = (_time_now_usec - vehicle_attitude.timestamp < 1_s) && (vehicle_attitude.timestamp > 0);
-	}
-
-	if (_vehicle_local_position_sub.update(&_vehicle_local_position)) {
-		_vehicle_local_position_valid = (time_now_usec - _vehicle_local_position.timestamp < 1_s)
-						&& (_vehicle_local_position.timestamp > 0) && _vehicle_local_position.v_xy_valid;
-	}
-
-	if (_vehicle_status_sub.update(&_vehicle_status)) {
-		// _vehicle_attitude_valid = (_time_now_usec - vehicle_attitude.timestamp < 1_s) && (vehicle_attitude.timestamp > 0);
-	}
-
-	if (_vtol_vehicle_status_sub.update(&_vtol_vehicle_status)) {
-		// _vehicle_attitude_valid = (_time_now_usec - vehicle_attitude.timestamp < 1_s) && (vehicle_attitude.timestamp > 0);
-	}
 }
 
 void AirspeedModule::update_wind_estimator_sideslip()
