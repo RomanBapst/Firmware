@@ -523,12 +523,12 @@ void AirspeedModule::select_airspeed_and_publish()
 			 ORB_PRIO_DEFAULT);
 
 	/* publish sideslip-only-fusion wind topic */
-	orb_publish_auto(ORB_ID(wind_estimate), &_wind_est_pub[0], &_wind_estimate_sideslip, &instance, ORB_PRIO_DEFAULT);
+	orb_publish_auto(ORB_ID(wind_estimate), &_wind_est_pub[0], &_wind_estimate_sideslip, &instance, ORB_PRIO_LOW);
 
 	/* publish the wind estimator states from all airspeed validators */
 	for (int i = 0; i < _number_of_airspeed_sensors; i++) {
 		wind_estimate_s wind_est = _airspeed_validator[i].get_wind_estimator_states(hrt_absolute_time());
-		orb_publish_auto(ORB_ID(wind_estimate), &_wind_est_pub[i + 1], &wind_est, &instance, ORB_PRIO_DEFAULT);
+		orb_publish_auto(ORB_ID(wind_estimate), &_wind_est_pub[i + 1], &wind_est, &instance, ORB_PRIO_LOW);
 	}
 
 }
