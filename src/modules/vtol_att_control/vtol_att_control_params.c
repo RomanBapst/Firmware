@@ -270,23 +270,43 @@ PARAM_DEFINE_INT32(VT_FW_QC_R, 0);
 PARAM_DEFINE_FLOAT(VT_F_TR_OL_TM, 6.0f);
 
 /**
- * The channel number of motors that must be turned off in fixed wing mode.
+ * Channel bitmask of motors that must be turned off in fixed wing mode.
  *
  * @min 0
- * @max 12345678
- * @increment 1
- * @decimal 0
+ * @max 4095
+ * @bit 0 Motor on Channel 0.
+ * @bit 1 Motor on Channel 1.
+ * @bit 2 Motor on Channel 2.
+ * @bit 3 Motor on Channel 3.
+ * @bit 4 Motor on Channel 4.
+ * @bit 5 Motor on Channel 5.
+ * @bit 6 Motor on Channel 6.
+ * @bit 7 Motor on Channel 7.
+ * @bit 8 Motor on Channel 8.
+ * @bit 9 Motor on Channel 9.
+ * @bit 10 Motor on Channel 10.
+ * @bit 11 Motor on Channel 11.
  * @group VTOL Attitude Control
  */
 PARAM_DEFINE_INT32(VT_FW_MOT_OFFID, 0);
 
 /**
- * The channel number of motors which provide lift during hover.
+ * Channel bitmask of motors which provide lift during hover.
  *
  * @min 0
- * @max 12345678
- * @increment 1
- * @decimal 0
+ * @max 4095
+ * @bit 0 Channel 0 is motor.
+ * @bit 1 Channel 1 is motor.
+ * @bit 2 Channel 2 is motor.
+ * @bit 3 Channel 3 is motor.
+ * @bit 4 Channel 4 is motor.
+ * @bit 5 Channel 5 is motor.
+ * @bit 6 Channel 6 is motor.
+ * @bit 7 Channel 7 is motor.
+ * @bit 8 Channel 8 is motor.
+ * @bit 9 Channel 9 is motor.
+ * @bit 10 Channel 10 is motor.
+ * @bit 11 Channel 11 is motor.
  * @group VTOL Attitude Control
  */
 PARAM_DEFINE_INT32(VT_MOT_ID, 0);

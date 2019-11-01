@@ -363,22 +363,5 @@ motor_state VtolType::set_motor_state(const motor_state current_state, const mot
 
 bool VtolType::is_channel_set(const int channel, const int target)
 {
-	int channel_bitmap = 0;
-
-	int tmp;
-	int channels = target;
-
-
-	for (int i = 0; i < num_outputs_max; ++i) {
-		tmp = channels % 10;
-
-		if (tmp == 0) {
-			break;
-		}
-
-		channel_bitmap |= 1 << (tmp - 1);
-		channels = channels / 10;
-	}
-
-	return (channel_bitmap >> channel) & 1;
+	return target & (1 << channel);
 }
